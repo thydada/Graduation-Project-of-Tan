@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
+import MainLayout from '../views/MainLayout.vue'
+import SendPackageView from '../views/SendPackageView.vue'
 import WelcomeView from '../views/WelcomeView.vue'
 
 const routes = [
@@ -7,6 +9,18 @@ const routes = [
     path: '/',
     name: 'Login',
     component: LoginView
+  },
+  {
+    path: '/main',
+    name: 'Main',
+    component: MainLayout,
+    children: [
+      {
+        path: 'send-package',
+        name: 'SendPackage',
+        component: SendPackageView
+      }
+    ]
   },
   {
     path: '/welcome',

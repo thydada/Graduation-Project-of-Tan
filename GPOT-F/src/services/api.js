@@ -41,6 +41,21 @@ const apiService = {
   // 用户注册
   async register(registerData) {
     return api.post('/register', registerData)
+  },
+
+  // 寄件
+  async sendPackage(packageData) {
+    return api.post('/send-package', packageData)
+  },
+
+  // 获取用户包裹列表
+  async getUserPackages(userId) {
+    return api.get(`/packages/user/${userId}`)
+  },
+
+  // 根据快递单号查询包裹
+  async getPackageByTrackingNumber(trackingNumber) {
+    return api.get(`/packages/tracking/${trackingNumber}`)
   }
 }
 

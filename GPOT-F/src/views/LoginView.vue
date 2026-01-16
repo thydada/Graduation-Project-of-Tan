@@ -169,8 +169,17 @@ export default {
         })
 
         if (response.data.success) {
-          // 登录成功，跳转到欢迎页面
-          router.push('/welcome')
+          // 登录成功，保存用户信息到localStorage
+          const userInfo = {
+            id: response.data.data.userId,
+            username: response.data.data.username,
+            realName: response.data.data.realName,
+            userType: response.data.data.userType
+          }
+          localStorage.setItem('user', JSON.stringify(userInfo))
+
+          // 跳转到主页面
+          router.push('/main/send-package')
         } else {
           errorMessage.value = response.data.message
         }
