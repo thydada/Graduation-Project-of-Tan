@@ -18,12 +18,24 @@ export default {
 }
 
 body {
-  font-family: 'Arial', sans-serif;
-  background-color: #f5f5f5;
-  color: #333;
+  font-family: 'Microsoft YaHei', '微软雅黑', 'SimHei', '黑体', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  background-color: #ffffff;
+  color: #333333;
+  line-height: 1.4;
 }
 
 #app {
   min-height: 100vh;
+  background-color: #ffffff;
+}
+
+/* 全局按钮样式重置 */
+button {
+  font-family: inherit;
+}
+
+/* 全局输入框样式重置 */
+input, textarea, select {
+  font-family: inherit;
 }
 </style>

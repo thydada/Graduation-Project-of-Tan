@@ -3,7 +3,7 @@
     <div class="welcome-card">
       <div class="welcome-header">
         <h1 class="welcome-title">欢迎使用 GPOT 快递管理系统</h1>
-        <div class="welcome-icon">🎉</div>
+        <div class="welcome-icon">★</div>
       </div>
 
       <div class="welcome-content">
@@ -13,25 +13,25 @@
 
         <div class="features-grid">
           <div class="feature-card">
-            <div class="feature-icon">📦</div>
+            <div class="feature-icon">■</div>
             <h3>包裹管理</h3>
             <p>查看和管理您的快递包裹</p>
           </div>
 
           <div class="feature-card">
-            <div class="feature-icon">📍</div>
+            <div class="feature-icon">◎</div>
             <h3>地址管理</h3>
             <p>管理收货和发货地址</p>
           </div>
 
           <div class="feature-card">
-            <div class="feature-icon">📊</div>
+            <div class="feature-icon">≡</div>
             <h3>订单查询</h3>
             <p>查询订单状态和历史记录</p>
           </div>
 
           <div class="feature-card">
-            <div class="feature-icon">🔔</div>
+            <div class="feature-icon">●</div>
             <h3>消息通知</h3>
             <p>接收系统消息和提醒</p>
           </div>
@@ -74,7 +74,7 @@ export default {
 <style scoped>
 .welcome-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #F5F5F5 0%, #E8E8E8 100%);
   padding: 20px;
   display: flex;
   align-items: center;
@@ -83,12 +83,13 @@ export default {
 
 .welcome-card {
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-  padding: 40px;
+  border-radius: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 48px;
   width: 100%;
-  max-width: 800px;
+  max-width: 900px;
   text-align: center;
+  border: 2px solid #cccccc;
 }
 
 .welcome-header {
@@ -139,16 +140,17 @@ export default {
 }
 
 .feature-card {
-  background: #f8f9fa;
-  border-radius: 12px;
-  padding: 25px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  border: 1px solid #e9ecef;
+  background: #fafafa;
+  border-radius: 0;
+  padding: 28px;
+  transition: all 0.2s ease;
+  border: 2px solid #e0e0e0;
 }
 
 .feature-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  border-color: #DC143C;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
 }
 
 .feature-icon {
@@ -182,20 +184,23 @@ export default {
 }
 
 .logout-btn {
-  padding: 12px 30px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 14px 28px;
+  background: #DC143C;
   color: white;
-  border: none;
-  border-radius: 8px;
+  border: 2px solid #DC143C;
+  border-radius: 0;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.2s ease;
+  letter-spacing: 0.5px;
 }
 
 .logout-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+  background: #B22222;
+  border-color: #B22222;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 20, 60, 0.3);
 }
 
 @media (max-width: 768px) {

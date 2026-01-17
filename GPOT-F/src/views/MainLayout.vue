@@ -21,8 +21,8 @@
 
       <div class="sidebar-footer">
         <button @click="handleLogout" class="logout-btn">
-          <span class="nav-icon">🚪</span>
-          <span>退出登录</span>
+          <span class="nav-icon">退出</span>
+          <span>登录</span>
         </button>
       </div>
     </div>
@@ -58,7 +58,7 @@ export default {
         name: 'SendPackage',
         title: '我要寄件',
         path: '/main/send-package',
-        icon: '📦'
+        icon: '寄'
       }
       // 可以在这里添加更多菜单项
     ]
@@ -94,16 +94,17 @@ export default {
 /* 左侧导航栏 */
 .sidebar {
   width: 250px;
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(180deg, #B22222 0%, #8B0000 100%);
   color: white;
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
 }
 
 .sidebar-header {
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 24px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .sidebar-title {
@@ -111,6 +112,7 @@ export default {
   font-size: 20px;
   font-weight: 700;
   text-align: center;
+  letter-spacing: 1px;
 }
 
 .sidebar-nav {
@@ -121,23 +123,25 @@ export default {
 .nav-item {
   display: flex;
   align-items: center;
-  padding: 15px 20px;
-  color: rgba(255, 255, 255, 0.8);
+  padding: 16px 20px;
+  color: rgba(255, 255, 255, 0.9);
   text-decoration: none;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   border-left: 4px solid transparent;
+  border-radius: 0;
 }
 
 .nav-item:hover {
   background-color: rgba(255, 255, 255, 0.1);
   color: white;
-  border-left-color: rgba(255, 255, 255, 0.5);
+  border-left-color: rgba(255, 255, 255, 0.6);
 }
 
 .nav-item.active {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: #B22222;
   color: white;
   border-left-color: white;
+  font-weight: 600;
 }
 
 .nav-icon {
@@ -159,19 +163,20 @@ export default {
   width: 100%;
   display: flex;
   align-items: center;
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  padding: 14px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0;
   color: white;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .logout-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 /* 主内容区域 */
@@ -182,20 +187,21 @@ export default {
 }
 
 .content-header {
-  background: white;
-  padding: 20px 30px;
-  border-bottom: 1px solid #e9ecef;
+  background: #f8f8f8;
+  padding: 24px 32px;
+  border-bottom: 2px solid #DC143C;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .content-title {
   margin: 0;
-  color: #333;
-  font-size: 24px;
-  font-weight: 600;
+  color: #333333;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
 .user-info {
@@ -204,14 +210,16 @@ export default {
 }
 
 .user-name {
-  color: #666;
+  color: #555555;
   font-size: 16px;
+  font-weight: 500;
 }
 
 .content-body {
   flex: 1;
-  padding: 30px;
+  padding: 32px;
   overflow-y: auto;
+  background: #ffffff;
 }
 
 /* 响应式设计 */
@@ -221,11 +229,11 @@ export default {
   }
 
   .content-header {
-    padding: 15px 20px;
+    padding: 18px 20px;
   }
 
   .content-title {
-    font-size: 20px;
+    font-size: 22px;
   }
 
   .content-body {

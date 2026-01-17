@@ -140,7 +140,6 @@
             重置
           </button>
           <button type="submit" :disabled="loading" class="btn-primary">
-            <span v-if="loading" class="loading-spinner">⏳</span>
             {{ loading ? '提交中...' : '确认寄件' }}
           </button>
         </div>
@@ -153,7 +152,7 @@
 
       <!-- 寄件成功提示 -->
       <div v-if="successData" class="success-card">
-        <div class="success-icon">✅</div>
+        <div class="success-icon">✓</div>
         <h3>寄件成功！</h3>
         <div class="success-details">
           <p><strong>快递单号：</strong>{{ successData.trackingNumber }}</p>
@@ -275,33 +274,38 @@ export default {
 
 <style scoped>
 .send-package-container {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
 }
 
 .form-card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  padding: 40px;
+  background: #ffffff;
+  border: 2px solid #e0e0e0;
+  border-radius: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 48px;
 }
 
 .form-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 48px;
+  border-bottom: 3px solid #DC143C;
+  padding-bottom: 24px;
 }
 
 .form-title {
-  color: #333;
-  font-size: 28px;
-  font-weight: 700;
-  margin-bottom: 8px;
+  color: #333333;
+  font-size: 32px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
 }
 
 .form-subtitle {
-  color: #666;
+  color: #666666;
   font-size: 16px;
   margin: 0;
+  font-weight: 500;
 }
 
 .send-package-form {
@@ -311,18 +315,21 @@ export default {
 }
 
 .form-section {
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
-  padding: 24px;
+  border: 2px solid #cccccc;
+  border-radius: 0;
+  padding: 32px;
+  margin-bottom: 24px;
+  background: #fafafa;
 }
 
 .section-title {
-  color: #333;
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 20px;
+  color: #333333;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 24px;
   padding-bottom: 12px;
-  border-bottom: 2px solid #667eea;
+  border-bottom: 3px solid #DC143C;
+  letter-spacing: 0.5px;
 }
 
 .form-row {
@@ -338,28 +345,30 @@ export default {
 }
 
 .form-label {
-  color: #333;
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 8px;
+  color: #333333;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  display: block;
 }
 
 .form-input,
 .form-select,
 .form-textarea {
-  padding: 12px 16px;
-  border: 2px solid #e9ecef;
-  border-radius: 8px;
+  padding: 14px 16px;
+  border: 2px solid #cccccc;
+  border-radius: 0;
   font-size: 16px;
-  transition: border-color 0.3s ease;
+  transition: border-color 0.2s ease;
+  background: #ffffff;
 }
 
 .form-input:focus,
 .form-select:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #DC143C;
+  box-shadow: 0 0 0 2px rgba(220, 20, 60, 0.1);
 }
 
 .form-textarea {
@@ -377,26 +386,30 @@ export default {
 
 .btn-primary,
 .btn-secondary {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
+  padding: 14px 28px;
+  border: 2px solid;
+  border-radius: 0;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 8px;
+  letter-spacing: 0.5px;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #DC143C;
+  border-color: #DC143C;
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+  background: #B22222;
+  border-color: #B22222;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 20, 60, 0.3);
 }
 
 .btn-primary:disabled {
@@ -405,23 +418,16 @@ export default {
 }
 
 .btn-secondary {
-  background: #f8f9fa;
-  color: #666;
-  border: 2px solid #e9ecef;
+  background: #ffffff;
+  color: #333333;
+  border-color: #cccccc;
 }
 
 .btn-secondary:hover {
-  background: #e9ecef;
+  background: #f0f0f0;
+  border-color: #999999;
 }
 
-.loading-spinner {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
 
 .message {
   margin-top: 20px;
@@ -443,61 +449,70 @@ export default {
 }
 
 .success-card {
-  margin-top: 30px;
-  padding: 30px;
-  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-  border: 2px solid #28a745;
-  border-radius: 12px;
+  margin-top: 40px;
+  padding: 36px;
+  background: #ffffff;
+  border: 3px solid #DC143C;
+  border-radius: 0;
   text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .success-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
+  font-size: 56px;
+  margin-bottom: 20px;
+  color: #DC143C;
 }
 
 .success-card h3 {
-  color: #155724;
-  margin-bottom: 20px;
-  font-size: 24px;
+  color: #333333;
+  margin-bottom: 24px;
+  font-size: 28px;
+  font-weight: 700;
 }
 
 .success-details {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  background: #f8f8f8;
+  padding: 24px;
+  border-radius: 0;
+  margin-bottom: 24px;
+  border: 1px solid #cccccc;
 }
 
 .success-details p {
-  margin: 8px 0;
-  color: #333;
+  margin: 10px 0;
+  color: #333333;
+  font-size: 16px;
 }
 
 .btn-success {
-  background: #28a745;
+  background: #DC143C;
   color: white;
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
+  padding: 14px 28px;
+  border: 2px solid #DC143C;
+  border-radius: 0;
   font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
+  letter-spacing: 0.5px;
 }
 
 .btn-success:hover {
-  background: #218838;
+  background: #B22222;
+  border-color: #B22222;
   transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 20, 60, 0.3);
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
   .form-card {
-    padding: 20px;
+    padding: 24px;
   }
 
   .form-title {
-    font-size: 24px;
+    font-size: 28px;
   }
 
   .form-row {
@@ -510,9 +525,18 @@ export default {
   }
 
   .btn-primary,
-  .btn-secondary {
+  .btn-secondary,
+  .btn-success {
     width: 100%;
     justify-content: center;
+  }
+
+  .form-section {
+    padding: 24px;
+  }
+
+  .section-title {
+    font-size: 20px;
   }
 }
 </style>

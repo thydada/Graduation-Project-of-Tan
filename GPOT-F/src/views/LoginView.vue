@@ -251,53 +251,58 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #F5F5F5 0%, #E8E8E8 100%);
   padding: 20px;
 }
 
 .login-card {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  padding: 40px;
+  border-radius: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 48px;
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
+  border: 3px solid #DC143C;
 }
 
 .title {
   text-align: center;
-  color: #333;
-  margin-bottom: 30px;
-  font-size: 24px;
-  font-weight: 600;
+  color: #333333;
+  margin-bottom: 36px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border-bottom: 3px solid #DC143C;
+  padding-bottom: 16px;
 }
 
 .user-type-selector {
   display: flex;
-  gap: 10px;
-  margin-bottom: 30px;
+  gap: 12px;
+  margin-bottom: 36px;
 }
 
 .type-btn {
   flex: 1;
-  padding: 12px;
-  border: 2px solid #e1e5e9;
+  padding: 14px;
+  border: 2px solid #cccccc;
   background: white;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   position: relative;
+  letter-spacing: 0.5px;
 }
 
 .type-btn:hover:not(:disabled) {
-  border-color: #667eea;
+  border-color: #DC143C;
 }
 
 .type-btn.active {
-  border-color: #667eea;
-  background: #667eea;
+  border-color: #DC143C;
+  background: #DC143C;
   color: white;
 }
 
@@ -339,32 +344,38 @@ export default {
 }
 
 .form-group input {
-  padding: 12px 16px;
-  border: 2px solid #e1e5e9;
-  border-radius: 8px;
+  padding: 14px 16px;
+  border: 2px solid #cccccc;
+  border-radius: 0;
   font-size: 16px;
-  transition: border-color 0.3s ease;
+  transition: border-color 0.2s ease;
+  background: #ffffff;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #DC143C;
+  box-shadow: 0 0 0 2px rgba(220, 20, 60, 0.1);
 }
 
 .submit-btn {
-  padding: 14px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 16px;
+  background: #DC143C;
   color: white;
-  border: none;
-  border-radius: 8px;
+  border: 2px solid #DC143C;
+  border-radius: 0;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: all 0.2s ease;
+  letter-spacing: 0.5px;
 }
 
 .submit-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
+  background: #B22222;
+  border-color: #B22222;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 20, 60, 0.3);
 }
 
 .submit-btn:disabled {
@@ -382,14 +393,16 @@ export default {
 .link-btn {
   background: none;
   border: none;
-  color: #667eea;
+  color: #DC143C;
   cursor: pointer;
-  font-weight: 500;
-  text-decoration: underline;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .link-btn:hover {
-  color: #5a67d8;
+  color: #B22222;
+  text-decoration: underline;
 }
 
 .error-message {
@@ -417,18 +430,20 @@ export default {
 
 .modal-content {
   background: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  padding: 36px;
+  border-radius: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   text-align: center;
-  max-width: 300px;
+  max-width: 320px;
   width: 90%;
+  border: 2px solid #DC143C;
 }
 
 .modal-content h3 {
-  color: #28a745;
-  margin-bottom: 15px;
-  font-size: 20px;
+  color: #333333;
+  margin-bottom: 18px;
+  font-size: 22px;
+  font-weight: 700;
 }
 
 .modal-content p {
@@ -438,18 +453,22 @@ export default {
 }
 
 .modal-btn {
-  padding: 12px 24px;
-  background: #28a745;
+  padding: 14px 28px;
+  background: #DC143C;
   color: white;
-  border: none;
-  border-radius: 8px;
+  border: 2px solid #DC143C;
+  border-radius: 0;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.2s ease;
+  letter-spacing: 0.5px;
 }
 
 .modal-btn:hover {
-  background: #218838;
+  background: #B22222;
+  border-color: #B22222;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 20, 60, 0.3);
 }
 </style>
