@@ -110,6 +110,36 @@ CREATE TABLE package (
     FOREIGN KEY (user_id) REFERENCES user(id)
 ) COMMENT '快递包裹表';
 
+-- 临时包裹表（用于寄件时暂存包裹信息，等待取件和核验）
+CREATE TABLE package_temp (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '临时包裹ID',
+    tracking_number VARCHAR(100) NOT NULL UNIQUE COMMENT '快递单号',
+    sender_name VARCHAR(50) COMMENT '寄件人姓名',
+    sender_phone VARCHAR(20) COMMENT '寄件人电话',
+    sender_address VARCHAR(200) COMMENT '寄件人地址',
+    receiver_name VARCHAR(50) COMMENT '收件人姓名',
+    receiver_phone VARCHAR(20) COMMENT '收件人电话',
+    receiver_address VARCHAR(200) COMMENT '收件人地址',
+    package_type VARCHAR(20) COMMENT '包裹类型',
+    weight DECIMAL(10,2) COMMENT '重量(kg)',
+    size VARCHAR(50) COMMENT '尺寸',
+    status VARCHAR(20) DEFAULT '待入库' COMMENT '状态(待入库、入库中、已入库、待取件、已取件、异常)',
+    warehouse_id BIGINT COMMENT '仓库ID',
+    shelf_id BIGINT COMMENT '货架ID',
+    entry_employee_id BIGINT COMMENT '入库员工ID',
+    entry_time DATETIME COMMENT '入库时间',
+    user_id BIGINT COMMENT '所属用户ID',
+    pickup_deadline DATETIME COMMENT '取件截止时间',
+    pickup_success TINYINT DEFAULT 0 COMMENT '是否取件成功(0:未取件,1:取件成功)',
+    verification_success TINYINT DEFAULT 0 COMMENT '是否核验成功(0:未核验,1:核验成功)',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    FOREIGN KEY (warehouse_id) REFERENCES warehouse(id),
+    FOREIGN KEY (shelf_id) REFERENCES shelf(id),
+    FOREIGN KEY (entry_employee_id) REFERENCES employee(id),
+    FOREIGN KEY (user_id) REFERENCES user(id)
+) COMMENT '临时包裹表';
+
 -- 入库记录表
 CREATE TABLE package_entry (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '入库记录ID',
@@ -265,6 +295,11 @@ CREATE TABLE announcement (
 CREATE INDEX idx_package_tracking ON package(tracking_number);
 CREATE INDEX idx_package_status ON package(status);
 CREATE INDEX idx_package_user ON package(user_id);
+CREATE INDEX idx_package_temp_tracking ON package_temp(tracking_number);
+CREATE INDEX idx_package_temp_status ON package_temp(status);
+CREATE INDEX idx_package_temp_user ON package_temp(user_id);
+CREATE INDEX idx_package_temp_pickup_success ON package_temp(pickup_success);
+CREATE INDEX idx_package_temp_verification_success ON package_temp(verification_success);
 CREATE INDEX idx_pickup_code_code ON pickup_code(code);
 CREATE INDEX idx_message_receiver ON message(receiver_id, receiver_type);
 CREATE INDEX idx_operation_stats_date ON operation_stats(stats_date);
