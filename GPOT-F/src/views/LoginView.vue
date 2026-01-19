@@ -10,16 +10,14 @@
           :key="type.value"
           :class="['type-btn', { active: selectedUserType === type.value }]"
           @click="selectedUserType = type.value"
-          :disabled="type.value !== 'user'"
         >
           {{ type.label }}
-          <span v-if="type.value !== 'user'" class="coming-soon">即将推出</span>
         </button>
       </div>
 
       <!-- 登录表单 -->
       <div v-if="!isRegisterMode" class="form-section">
-        <h2>用户登录</h2>
+        <h2>{{ getLoginTitle() }}</h2>
         <form @submit.prevent="handleLogin" class="login-form">
           <div class="form-group">
             <label for="username">用户名</label>
@@ -153,11 +151,6 @@ export default {
     })
 
     const handleLogin = async () => {
-      if (selectedUserType.value !== 'user') {
-        errorMessage.value = '目前只支持用户登录'
-        return
-      }
-
       loading.value = true
       errorMessage.value = ''
 
@@ -170,16 +163,34 @@ export default {
 
         if (response.data.success) {
           // 登录成功，保存用户信息到localStorage
+          const userInfoData = response.data.data.userInfo
           const userInfo = {
             id: response.data.data.userId,
             username: response.data.data.username,
             realName: response.data.data.realName,
-            userType: response.data.data.userType
+            userType: response.data.data.userType,
+            department: userInfoData ? userInfoData.department : null
           }
           localStorage.setItem('user', JSON.stringify(userInfo))
 
-          // 跳转到主页面
-          router.push('/main/send-package')
+          // 根据用户类型和员工部门跳转到不同页面
+          if (selectedUserType.value === 'employee') {
+            // 员工登录，根据department跳转
+            const userInfo = response.data.data.userInfo
+            const department = userInfo ? userInfo.department : null
+            if (department === 'A') {
+              router.push('/page-a')
+            } else if (department === 'B') {
+              router.push('/page-b')
+            } else {
+              errorMessage.value = '未知部门，无法跳转'
+            }
+          } else if (selectedUserType.value === 'admin') {
+            router.push('/welcome')
+          } else {
+            // 普通用户跳转到寄件页面
+            router.push('/main/send-package')
+          }
         } else {
           errorMessage.value = response.data.message
         }
@@ -189,6 +200,16 @@ export default {
       } finally {
         loading.value = false
       }
+    }
+
+    // 获取登录标题
+    const getLoginTitle = () => {
+      const titles = {
+        admin: '管理员登录',
+        employee: '员工登录',
+        user: '用户登录'
+      }
+      return titles[selectedUserType.value] || '登录'
     }
 
     const handleRegister = async () => {
@@ -239,7 +260,8 @@ export default {
       handleLogin,
       handleRegister,
       handleBackToLogin,
-      closeModal
+      closeModal,
+      getLoginTitle
     }
   }
 }
@@ -304,18 +326,6 @@ export default {
   border-color: #DC143C;
   background: #DC143C;
   color: white;
-}
-
-.type-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.coming-soon {
-  display: block;
-  font-size: 10px;
-  opacity: 0.8;
-  margin-top: 2px;
 }
 
 .form-section h2 {

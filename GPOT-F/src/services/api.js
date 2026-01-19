@@ -56,6 +56,26 @@ const apiService = {
   // 根据快递单号查询包裹
   async getPackageByTrackingNumber(trackingNumber) {
     return api.get(`/packages/tracking/${trackingNumber}`)
+  },
+
+  // 查询待取件的临时快递
+  async getPendingPackages() {
+    return api.get('/packages/temp/pending')
+  },
+
+  // 审核快递取件情况
+  async verifyPackage(id, status) {
+    return api.put(`/packages/temp/${id}/verify`, { status })
+  },
+
+  // 查询待核验的临时快递
+  async getVerificationPendingPackages() {
+    return api.get('/packages/temp/verification-pending')
+  },
+
+  // 核验快递
+  async verificationPackage(id, status) {
+    return api.put(`/packages/temp/${id}/verification`, { status })
   }
 }
 
