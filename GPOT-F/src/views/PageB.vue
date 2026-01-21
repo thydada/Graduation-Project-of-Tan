@@ -47,7 +47,7 @@
               </button>
               <button
                 class="btn btn-error"
-                @click="verificationPackage(pkg.id, 2)"
+                @click="openExceptionModal(pkg)"
                 :disabled="processingId === pkg.id"
               >
                 核验出错
@@ -72,6 +72,54 @@
     <div v-if="errorMessage" class="error-message">
       {{ errorMessage }}
     </div>
+
+    <!-- 异常报告弹窗 -->
+    <div v-if="showExceptionModal" class="modal-overlay" @click.self="closeExceptionModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>报告核验异常</h3>
+          <button class="close-btn" @click="closeExceptionModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>快递单号：</label>
+            <span class="tracking-info">{{ currentExceptionPackage?.trackingNumber }}</span>
+          </div>
+          <div class="form-group">
+            <label for="exceptionType">异常类型：</label>
+            <select id="exceptionType" v-model="exceptionType" class="form-control">
+              <option value="">请选择异常类型</option>
+              <option value="包裹信息不符">包裹信息不符</option>
+              <option value="包裹破损">包裹破损</option>
+              <option value="包裹丢失">包裹丢失</option>
+              <option value="重量异常">重量异常</option>
+              <option value="物品违禁">物品违禁</option>
+              <option value="其他原因">其他原因</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="exceptionReason">异常原因：</label>
+            <textarea
+              id="exceptionReason"
+              v-model="exceptionReason"
+              class="form-control"
+              rows="4"
+              placeholder="请详细描述异常情况..."
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-cancel" @click="closeExceptionModal">取消</button>
+          <button
+            class="btn btn-submit"
+            @click="submitException"
+            :disabled="!exceptionType || submitting"
+          >
+            {{ submitting ? '提交中...' : '确认提交' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -87,6 +135,13 @@ export default {
     const processingId = ref(null)
     const successMessage = ref('')
     const errorMessage = ref('')
+
+    // 异常弹窗相关
+    const showExceptionModal = ref(false)
+    const currentExceptionPackage = ref(null)
+    const exceptionType = ref('')
+    const exceptionReason = ref('')
+    const submitting = ref(false)
 
     // 获取待核验的快递列表
     const fetchPackages = async () => {
@@ -109,26 +164,23 @@ export default {
       }
     }
 
-    // 核验快递
+    // 核验快递 - 员工点击核验成功后执行完整入库流程
+    // 1. 将快递信息写入 package 表
+    // 2. 在 package_entry 表留下入库记录
+    // 3. 从 package_temp 表删除该条数据
+    // 仓库ID和货架ID默认填1
     const verificationPackage = async (id, status) => {
       processingId.value = id
       errorMessage.value = ''
       successMessage.value = ''
 
       try {
-        const response = await api.verificationPackage(id, status)
+        // 调用后端API，仓库ID和货架ID默认传1
+        const response = await api.verificationPackage(id, status, 1, 1, 1)
         if (response.data.success) {
-          // 更新成功后移除该快递或更新状态
-          const pkg = packages.value.find(p => p.id === id)
-          if (pkg) {
-            pkg.verificationSuccess = status
-          }
-          successMessage.value = response.data.message
-
-          // 1.5秒后自动移除已处理的快递
-          setTimeout(() => {
-            packages.value = packages.value.filter(p => p.id !== id)
-          }, 1500)
+          // 核验成功后移除该快递（已完成入库）
+          packages.value = packages.value.filter(p => p.id !== id)
+          successMessage.value = response.data.message || '核验成功，包裹已入库'
         } else {
           errorMessage.value = response.data.message || '核验失败'
         }
@@ -137,6 +189,57 @@ export default {
         errorMessage.value = error.response?.data?.message || '核验失败，请稍后重试'
       } finally {
         processingId.value = null
+      }
+    }
+
+    // 打开异常弹窗
+    const openExceptionModal = (pkg) => {
+      currentExceptionPackage.value = pkg
+      exceptionType.value = ''
+      exceptionReason.value = ''
+      showExceptionModal.value = true
+    }
+
+    // 关闭异常弹窗
+    const closeExceptionModal = () => {
+      showExceptionModal.value = false
+      currentExceptionPackage.value = null
+      exceptionType.value = ''
+      exceptionReason.value = ''
+    }
+
+    // 提交异常报告
+    const submitException = async () => {
+      if (!exceptionType.value || !currentExceptionPackage.value) {
+        return
+      }
+
+      submitting.value = true
+      errorMessage.value = ''
+      successMessage.value = ''
+
+      try {
+        const response = await api.reportException(
+          currentExceptionPackage.value.id,
+          exceptionType.value,
+          exceptionReason.value,
+          1, // 默认员工ID
+          'verification' // 来源：核验异常
+        )
+
+        if (response.data.success) {
+          // 移除已处理的快递
+          packages.value = packages.value.filter(p => p.id !== currentExceptionPackage.value.id)
+          successMessage.value = response.data.message
+          closeExceptionModal()
+        } else {
+          errorMessage.value = response.data.message || '提交异常报告失败'
+        }
+      } catch (error) {
+        console.error('提交异常报告失败:', error)
+        errorMessage.value = error.response?.data?.message || '提交异常报告失败，请稍后重试'
+      } finally {
+        submitting.value = false
       }
     }
 
@@ -182,7 +285,16 @@ export default {
       verificationPackage,
       formatDate,
       getStatusText,
-      getStatusClass
+      getStatusClass,
+      // 异常弹窗相关
+      showExceptionModal,
+      currentExceptionPackage,
+      exceptionType,
+      exceptionReason,
+      submitting,
+      openExceptionModal,
+      closeExceptionModal,
+      submitException
     }
   }
 }
@@ -372,5 +484,141 @@ export default {
   border-radius: 8px;
   text-align: center;
   border: 1px solid #fcc;
+}
+
+/* 弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 480px;
+  max-width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #999;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  color: #333;
+  font-weight: 500;
+}
+
+.tracking-info {
+  font-family: monospace;
+  color: #1E90FF;
+  font-weight: 600;
+}
+
+.form-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #1E90FF;
+  box-shadow: 0 0 0 2px rgba(30, 144, 255, 0.2);
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+}
+
+.btn-cancel {
+  padding: 10px 20px;
+  background: #f5f5f5;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+  background: #e5e5e5;
+}
+
+.btn-submit {
+  padding: 10px 20px;
+  background: #1E90FF;
+  color: white;
+  border: 1px solid #1E90FF;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: #1873CC;
+  border-color: #1873CC;
+}
+
+.btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

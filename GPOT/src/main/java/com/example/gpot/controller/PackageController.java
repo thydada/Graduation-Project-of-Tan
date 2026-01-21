@@ -1,10 +1,13 @@
 package com.example.gpot.controller;
 
 import com.example.gpot.dto.ApiResponse;
+import com.example.gpot.dto.ExceptionReportRequest;
 import com.example.gpot.dto.SendPackageRequest;
 import com.example.gpot.dto.SendPackageResponse;
+import com.example.gpot.entity.ExceptionPackage;
 import com.example.gpot.entity.Package;
 import com.example.gpot.entity.PackageTemp;
+import com.example.gpot.repository.ExceptionPackageRepository;
 import com.example.gpot.repository.PackageTempRepository;
 import com.example.gpot.service.PackageService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +29,9 @@ public class PackageController {
 
     @Autowired
     private PackageTempRepository packageTempRepository;
+
+    @Autowired
+    private ExceptionPackageRepository exceptionPackageRepository;
 
     /**
      * 用户寄件接口
@@ -185,13 +191,14 @@ public class PackageController {
      * 核验快递
      * @param id 快递ID
      * @param status 核验状态：1-核验成功，2-核验出错
+     * @param request 包含员工ID、仓库ID、货架ID的可选参数
      */
     @PutMapping("/packages/temp/{id}/verification")
     public ResponseEntity<ApiResponse<Map<String, Object>>> verificationPackage(
             @PathVariable Long id,
-            @RequestBody Map<String, Integer> request) {
+            @RequestBody Map<String, Object> request) {
         try {
-            Integer status = request.get("status");
+            Integer status = (Integer) request.get("status");
             if (status == null || (status != 1 && status != 2)) {
                 return ResponseEntity.badRequest()
                     .body(ApiResponse.error("核验状态无效，必须为1（核验成功）或2（核验出错）"));
@@ -202,22 +209,113 @@ public class PackageController {
                 return ResponseEntity.notFound().build();
             }
 
-            PackageTemp pkg = optionalPackage.get();
-            pkg.setVerificationSuccess(status);
-            pkg.setUpdateTime(LocalDateTime.now());
-            packageTempRepository.save(pkg);
+            // 如果核验成功，需要执行完整的转移逻辑
+            if (status == 1) {
+                // 获取员工ID（默认1）
+                Long employeeId = 1L;
+                if (request.get("employeeId") != null) {
+                    employeeId = ((Number) request.get("employeeId")).longValue();
+                }
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("id", pkg.getId());
-            result.put("trackingNumber", pkg.getTrackingNumber());
-            result.put("verificationSuccess", pkg.getVerificationSuccess());
+                // 获取仓库ID（默认1）
+                Long warehouseId = 1L;
+                if (request.get("warehouseId") != null) {
+                    warehouseId = ((Number) request.get("warehouseId")).longValue();
+                }
 
-            String message = status == 1 ? "已核验成功" : "已标记为核验出错";
-            return ResponseEntity.ok(ApiResponse.success(message, result));
+                // 获取货架ID（默认1）
+                Long shelfId = 1L;
+                if (request.get("shelfId") != null) {
+                    shelfId = ((Number) request.get("shelfId")).longValue();
+                }
+
+                // 执行核验成功后的转移逻辑
+                Map<String, Object> result = packageService.verificationAndTransferPackage(
+                    id, employeeId, warehouseId, shelfId
+                );
+
+                return ResponseEntity.ok(ApiResponse.success("核验成功，包裹已入库", result));
+            } else {
+                // 核验失败，只更新状态
+                PackageTemp pkg = optionalPackage.get();
+                pkg.setVerificationSuccess(status);
+                pkg.setUpdateTime(LocalDateTime.now());
+                packageTempRepository.save(pkg);
+
+                Map<String, Object> result = new HashMap<>();
+                result.put("id", pkg.getId());
+                result.put("trackingNumber", pkg.getTrackingNumber());
+                result.put("verificationSuccess", pkg.getVerificationSuccess());
+
+                return ResponseEntity.ok(ApiResponse.success("已标记为核验出错", result));
+            }
 
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                 .body(ApiResponse.error("核验过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 报告异常件
+     * 将包裹写入异常件表，并从临时快递表中删除
+     */
+    @PostMapping("/packages/temp/report-exception")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> reportException(@RequestBody ExceptionReportRequest request) {
+        try {
+            // 验证输入
+            if (request.getTempPackageId() == null) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("包裹ID不能为空"));
+            }
+            if (request.getExceptionType() == null || request.getExceptionType().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("异常类型不能为空"));
+            }
+            if (request.getSource() == null || (!"pickup".equals(request.getSource()) && !"verification".equals(request.getSource()))) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("异常来源无效，必须为 pickup 或 verification"));
+            }
+
+            // 查询临时包裹
+            Optional<PackageTemp> optionalPackage = packageTempRepository.findById(request.getTempPackageId());
+            if (!optionalPackage.isPresent()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            PackageTemp pkg = optionalPackage.get();
+
+            // 获取员工ID（默认1）
+            Long employeeId = request.getEmployeeId() != null ? request.getEmployeeId() : 1L;
+
+            // 创建异常件记录
+            ExceptionPackage exceptionPkg = new ExceptionPackage(
+                pkg.getId(),
+                pkg.getTrackingNumber(),
+                request.getExceptionType(),
+                request.getExceptionReason(),
+                employeeId,
+                "员工" + employeeId, // 简化处理，实际应该查询员工姓名
+                request.getSource()
+            );
+            exceptionPackageRepository.save(exceptionPkg);
+
+            // 从临时表中删除该包裹
+            packageTempRepository.delete(pkg);
+
+            // 返回结果
+            Map<String, Object> result = new HashMap<>();
+            result.put("exceptionId", exceptionPkg.getId());
+            result.put("trackingNumber", exceptionPkg.getTrackingNumber());
+            result.put("exceptionType", exceptionPkg.getExceptionType());
+            result.put("handleStatus", exceptionPkg.getHandleStatus());
+
+            String sourceText = "pickup".equals(request.getSource()) ? "取件" : "核验";
+            return ResponseEntity.ok(ApiResponse.success("已记录为" + sourceText + "异常件", result));
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("报告异常件过程中发生错误：" + e.getMessage()));
         }
     }
 }

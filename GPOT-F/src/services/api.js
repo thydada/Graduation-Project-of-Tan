@@ -74,8 +74,24 @@ const apiService = {
   },
 
   // 核验快递
-  async verificationPackage(id, status) {
-    return api.put(`/packages/temp/${id}/verification`, { status })
+  async verificationPackage(id, status, employeeId = 1, warehouseId = 1, shelfId = 1) {
+    return api.put(`/packages/temp/${id}/verification`, {
+      status,
+      employeeId,
+      warehouseId,
+      shelfId
+    })
+  },
+
+  // 报告异常件
+  async reportException(tempPackageId, exceptionType, exceptionReason, employeeId = 1, source) {
+    return api.post('/packages/temp/report-exception', {
+      tempPackageId,
+      exceptionType,
+      exceptionReason,
+      employeeId,
+      source
+    })
   }
 }
 
