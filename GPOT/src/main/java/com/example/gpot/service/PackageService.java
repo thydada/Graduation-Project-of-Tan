@@ -1,10 +1,13 @@
 package com.example.gpot.service;
 
+import com.example.gpot.dto.ExceptionReportRequest;
 import com.example.gpot.dto.SendPackageRequest;
 import com.example.gpot.dto.SendPackageResponse;
+import com.example.gpot.entity.ExceptionPackage;
 import com.example.gpot.entity.Package;
 import com.example.gpot.entity.PackageEntry;
 import com.example.gpot.entity.PackageTemp;
+import com.example.gpot.repository.ExceptionPackageRepository;
 import com.example.gpot.repository.PackageEntryRepository;
 import com.example.gpot.repository.PackageRepository;
 import com.example.gpot.repository.PackageTempRepository;
@@ -27,6 +30,16 @@ public class PackageService {
 
     @Autowired
     private PackageEntryRepository packageEntryRepository;
+
+    @Autowired
+    private ExceptionPackageRepository exceptionPackageRepository;
+
+    /**
+     * 获取所有异常件列表，按报告时间倒序排列
+     */
+    public List<ExceptionPackage> getAllExceptionPackages() {
+        return exceptionPackageRepository.findAllByOrderByReportTimeDesc();
+    }
 
     /**
      * 创建寄件包裹 - 先保存到临时表
@@ -109,6 +122,32 @@ public class PackageService {
      */
     public Optional<PackageTemp> getTempPackageByTrackingNumber(String trackingNumber) {
         return packageTempRepository.findByTrackingNumber(trackingNumber);
+    }
+
+    /**
+     * 根据用户ID查询异常件列表
+     * 通过获取用户的所有快递单号，然后查询对应的异常记录
+     */
+    public List<ExceptionPackage> getExceptionPackagesByUserId(Long userId) {
+        // 获取用户的临时包裹
+        List<PackageTemp> tempPackages = packageTempRepository.findByUserIdOrderByCreateTimeDesc(userId);
+        // 获取用户的正式包裹
+        List<Package> formalPackages = packageRepository.findByUserIdOrderByCreateTimeDesc(userId);
+
+        // 收集所有快递单号
+        java.util.List<String> trackingNumbers = new java.util.ArrayList<>();
+        for (PackageTemp temp : tempPackages) {
+            trackingNumbers.add(temp.getTrackingNumber());
+        }
+        for (Package pkg : formalPackages) {
+            trackingNumbers.add(pkg.getTrackingNumber());
+        }
+
+        if (trackingNumbers.isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+
+        return exceptionPackageRepository.findByTrackingNumberInOrderByReportTimeDesc(trackingNumbers);
     }
 
     /**

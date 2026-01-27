@@ -92,6 +92,16 @@ const apiService = {
       employeeId,
       source
     })
+  },
+
+  // 获取所有异常件列表
+  async getAllExceptionPackages() {
+    return api.get('/exception-packages')
+  },
+
+  // 获取用户所有包裹（包括临时表和正式表）
+  async getAllUserPackages(userId) {
+    return api.get(`/packages/user/${userId}/all`)
   }
 }
 

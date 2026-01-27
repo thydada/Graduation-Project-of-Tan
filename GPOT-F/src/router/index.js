@@ -5,6 +5,10 @@ import SendPackageView from '../views/SendPackageView.vue'
 import WelcomeView from '../views/WelcomeView.vue'
 import PageA from '../views/PageA.vue'
 import PageB from '../views/PageB.vue'
+import ExceptionView from '../views/ExceptionView.vue'
+import EmployeeLayout from '../views/EmployeeLayout.vue'
+import EmployeeProfile from '../views/EmployeeProfile.vue'
+import TrackPackageView from '../views/TrackPackageView.vue'
 
 const routes = [
   {
@@ -21,6 +25,11 @@ const routes = [
         path: 'send-package',
         name: 'SendPackage',
         component: SendPackageView
+      },
+      {
+        path: 'track-package',
+        name: 'TrackPackage',
+        component: TrackPackageView
       }
     ]
   },
@@ -28,6 +37,29 @@ const routes = [
     path: '/welcome',
     name: 'Welcome',
     component: WelcomeView
+  },
+  // 员工系统布局
+  {
+    path: '/employee',
+    name: 'Employee',
+    component: EmployeeLayout,
+    children: [
+      {
+        path: 'profile',
+        name: 'EmployeeProfile',
+        component: EmployeeProfile
+      },
+      {
+        path: 'pickup',
+        name: 'EmployeePickup',
+        component: PageA
+      },
+      {
+        path: 'exception',
+        name: 'EmployeeException',
+        component: ExceptionView
+      }
+    ]
   },
   {
     path: '/page-a',
@@ -38,6 +70,11 @@ const routes = [
     path: '/page-b',
     name: 'PageB',
     component: PageB
+  },
+  {
+    path: '/exception',
+    name: 'ExceptionStandalone',
+    component: ExceptionView
   }
 ]
 

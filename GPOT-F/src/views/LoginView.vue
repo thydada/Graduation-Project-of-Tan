@@ -175,16 +175,8 @@ export default {
 
           // 根据用户类型和员工部门跳转到不同页面
           if (selectedUserType.value === 'employee') {
-            // 员工登录，根据department跳转
-            const userInfo = response.data.data.userInfo
-            const department = userInfo ? userInfo.department : null
-            if (department === 'A') {
-              router.push('/page-a')
-            } else if (department === 'B') {
-              router.push('/page-b')
-            } else {
-              errorMessage.value = '未知部门，无法跳转'
-            }
+            // 员工登录，跳转到员工系统首页（个人信息管理）
+            router.push('/employee/profile')
           } else if (selectedUserType.value === 'admin') {
             router.push('/welcome')
           } else {

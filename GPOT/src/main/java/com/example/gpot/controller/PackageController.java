@@ -318,4 +318,45 @@ public class PackageController {
                 .body(ApiResponse.error("报告异常件过程中发生错误：" + e.getMessage()));
         }
     }
+
+    /**
+     * 获取所有异常件列表
+     */
+    @GetMapping("/exception-packages")
+    public ResponseEntity<ApiResponse<List<ExceptionPackage>>> getAllExceptionPackages() {
+        try {
+            List<ExceptionPackage> exceptions = packageService.getAllExceptionPackages();
+            return ResponseEntity.ok(ApiResponse.success("查询成功", exceptions));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 根据用户ID查询所有包裹（包括临时表和正式表）
+     */
+    @GetMapping("/packages/user/{userId}/all")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getAllPackagesByUserId(@PathVariable Long userId) {
+        try {
+            // 获取正式包裹
+            List<Package> formalPackages = packageService.getPackagesByUserId(userId);
+            // 获取临时包裹
+            List<PackageTemp> tempPackages = packageService.getTempPackagesByUserId(userId);
+            // 获取异常件
+            List<ExceptionPackage> exceptionPackages = packageService.getExceptionPackagesByUserId(userId);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("formalPackages", formalPackages);
+            result.put("tempPackages", tempPackages);
+            result.put("exceptionPackages", exceptionPackages);
+            result.put("totalCount", formalPackages.size() + tempPackages.size());
+            result.put("exceptionCount", exceptionPackages.size());
+
+            return ResponseEntity.ok(ApiResponse.success("查询成功", result));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
+        }
+    }
 }

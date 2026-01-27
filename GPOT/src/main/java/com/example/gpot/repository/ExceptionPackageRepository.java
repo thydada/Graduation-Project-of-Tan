@@ -28,4 +28,14 @@ public interface ExceptionPackageRepository extends JpaRepository<ExceptionPacka
      * 根据报告员工ID查询异常记录
      */
     List<ExceptionPackage> findByReportEmployeeIdOrderByReportTimeDesc(Long reportEmployeeId);
+
+    /**
+     * 查询所有异常记录，按报告时间倒序排列
+     */
+    List<ExceptionPackage> findAllByOrderByReportTimeDesc();
+
+    /**
+     * 根据快递单号列表查询异常记录
+     */
+    List<ExceptionPackage> findByTrackingNumberInOrderByReportTimeDesc(List<String> trackingNumbers);
 }

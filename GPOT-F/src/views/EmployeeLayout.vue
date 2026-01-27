@@ -1,9 +1,9 @@
 <template>
-  <div class="main-layout">
+  <div class="employee-layout">
     <!-- 左侧导航栏 -->
     <div class="sidebar">
       <div class="sidebar-header">
-        <h2 class="sidebar-title">GPOT 快递</h2>
+        <h2 class="sidebar-title">员工管理系统</h2>
       </div>
 
       <nav class="sidebar-nav">
@@ -20,6 +20,10 @@
       </nav>
 
       <div class="sidebar-footer">
+        <div class="user-badge">
+          <span class="user-icon">👤</span>
+          <span class="user-dept">{{ department }}</span>
+        </div>
         <button @click="handleLogout" class="logout-btn">
           <span class="nav-icon">退出</span>
           <span>登录</span>
@@ -30,7 +34,7 @@
     <!-- 主内容区域 -->
     <div class="main-content">
       <div class="content-header">
-        <h1 class="content-title">欢迎使用 GPOT 快递管理系统</h1>
+        <h1 class="content-title">{{ currentPageTitle }}</h1>
         <div class="user-info">
           <span class="user-name">{{ userName }}</span>
         </div>
@@ -44,46 +48,65 @@
 </template>
 
 <script>
-import { useRouter } from 'vue-router'
-import { ref, onMounted } from 'vue'
+import { computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 
 export default {
-  name: 'MainLayout',
+  name: 'EmployeeLayout',
   setup() {
     const router = useRouter()
-    const userName = ref('')
+    const route = useRoute()
 
+    // 从localStorage获取用户信息
+    const userInfo = JSON.parse(localStorage.getItem('user') || '{}')
+    const userName = computed(() => userInfo.realName || userInfo.username || '员工')
+    const department = computed(() => {
+      const dept = userInfo.department || ''
+      const deptMap = {
+        'A': '部门 A（取件审核）',
+        'B': '部门 B（核验入库）'
+      }
+      return deptMap[dept] || '员工'
+    })
+
+    // 菜单项
     const menuItems = [
       {
-        name: 'SendPackage',
-        title: '我要寄件',
-        path: '/main/send-package',
-        icon: '寄'
+        name: 'EmployeeProfile',
+        title: '个人信息管理',
+        path: '/employee/profile',
+        icon: '个'
       },
       {
-        name: 'TrackPackage',
-        title: '寄件跟踪',
-        path: '/main/track-package',
-        icon: '跟'
+        name: 'PageA',
+        title: '快递取件情况审核',
+        path: '/employee/pickup',
+        icon: '审'
+      },
+      {
+        name: 'Exception',
+        title: '异常件查询',
+        path: '/employee/exception',
+        icon: '警'
       }
-      // 可以在这里添加更多菜单项
     ]
 
+    // 计算当前页面标题
+    const currentPageTitle = computed(() => {
+      const currentRoute = menuItems.find(item => item.path === route.path)
+      return currentRoute ? currentRoute.title : '员工管理系统'
+    })
+
     const handleLogout = () => {
-      // 清除用户会话
       localStorage.removeItem('user')
       router.push('/')
     }
 
-    onMounted(() => {
-      // 从localStorage获取用户信息
-      const user = JSON.parse(localStorage.getItem('user') || '{}')
-      userName.value = user.realName || user.username || '用户'
-    })
-
     return {
       menuItems,
       userName,
+      department,
+      currentPageTitle,
       handleLogout
     }
   }
@@ -91,15 +114,15 @@ export default {
 </script>
 
 <style scoped>
-.main-layout {
+.employee-layout {
   display: flex;
   min-height: 100vh;
   background-color: #f5f5f5;
 }
 
-/* 左侧导航栏 */
+/* 左侧导航栏 - 红色主题（员工） */
 .sidebar {
-  width: 250px;
+  width: 260px;
   background: linear-gradient(180deg, #B22222 0%, #8B0000 100%);
   color: white;
   display: flex;
@@ -115,7 +138,7 @@ export default {
 
 .sidebar-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   text-align: center;
   letter-spacing: 1px;
@@ -153,16 +176,36 @@ export default {
 .nav-icon {
   margin-right: 12px;
   font-size: 18px;
+  font-weight: 600;
 }
 
 .nav-text {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
 }
 
 .sidebar-footer {
-  padding: 20px;
+  padding: 16px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.user-badge {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.user-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.user-dept {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .logout-btn {
