@@ -156,6 +156,17 @@ public class PackageController {
 
             PackageTemp pkg = optionalPackage.get();
             pkg.setPickupSuccess(status);
+            // 更新status字段以反映审核状态
+            if (status == 1) {
+                // 已取件，检查核验状态
+                if (pkg.getVerificationSuccess() == 1) {
+                    pkg.setStatus("审核完成");
+                } else {
+                    pkg.setStatus("待核验");
+                }
+            } else {
+                pkg.setStatus("取件异常");
+            }
             pkg.setUpdateTime(LocalDateTime.now());
             packageTempRepository.save(pkg);
 
@@ -239,6 +250,7 @@ public class PackageController {
                 // 核验失败，只更新状态
                 PackageTemp pkg = optionalPackage.get();
                 pkg.setVerificationSuccess(status);
+                pkg.setStatus("核验异常");
                 pkg.setUpdateTime(LocalDateTime.now());
                 packageTempRepository.save(pkg);
 
@@ -288,7 +300,7 @@ public class PackageController {
             // 获取员工ID（默认1）
             Long employeeId = request.getEmployeeId() != null ? request.getEmployeeId() : 1L;
 
-            // 创建异常件记录
+            // 创建异常件记录，保存用户ID
             ExceptionPackage exceptionPkg = new ExceptionPackage(
                 pkg.getId(),
                 pkg.getTrackingNumber(),
@@ -296,7 +308,8 @@ public class PackageController {
                 request.getExceptionReason(),
                 employeeId,
                 "员工" + employeeId, // 简化处理，实际应该查询员工姓名
-                request.getSource()
+                request.getSource(),
+                pkg.getUserId() // 保存用户ID
             );
             exceptionPackageRepository.save(exceptionPkg);
 
@@ -334,29 +347,88 @@ public class PackageController {
     }
 
     /**
-     * 根据用户ID查询所有包裹（包括临时表和正式表）
+     * 获取用户的所有包裹信息（临时包裹、正式包裹、异常包裹）
      */
     @GetMapping("/packages/user/{userId}/all")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getAllPackagesByUserId(@PathVariable Long userId) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getUserAllPackages(@PathVariable Long userId) {
         try {
-            // 获取正式包裹
-            List<Package> formalPackages = packageService.getPackagesByUserId(userId);
-            // 获取临时包裹
-            List<PackageTemp> tempPackages = packageService.getTempPackagesByUserId(userId);
-            // 获取异常件
-            List<ExceptionPackage> exceptionPackages = packageService.getExceptionPackagesByUserId(userId);
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("formalPackages", formalPackages);
-            result.put("tempPackages", tempPackages);
-            result.put("exceptionPackages", exceptionPackages);
-            result.put("totalCount", formalPackages.size() + tempPackages.size());
-            result.put("exceptionCount", exceptionPackages.size());
-
+            Map<String, Object> result = packageService.getUserAllPackages(userId);
             return ResponseEntity.ok(ApiResponse.success("查询成功", result));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                 .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 获取已入库的包裹列表（供员工B出库使用）
+     */
+    @GetMapping("/packages/in-stock")
+    public ResponseEntity<ApiResponse<List<Package>>> getInStockPackages() {
+        try {
+            List<Package> packages = packageService.getInStockPackages();
+            return ResponseEntity.ok(ApiResponse.success("查询成功", packages));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 出库操作（员工B）
+     */
+    @PostMapping("/packages/{packageId}/outbound")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> outboundPackage(
+            @PathVariable Long packageId,
+            @RequestBody Map<String, Long> request) {
+        try {
+            Long outboundEmployeeId = request.get("employeeId");
+            if (outboundEmployeeId == null) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("员工ID不能为空"));
+            }
+
+            Map<String, Object> result = packageService.outboundPackage(packageId, outboundEmployeeId);
+            return ResponseEntity.ok(ApiResponse.success("出库成功", result));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("出库过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 获取分配给指定员工的运输中包裹列表（供员工A使用）
+     */
+    @GetMapping("/packages/transporting/{employeeId}")
+    public ResponseEntity<ApiResponse<List<Package>>> getTransportingPackages(@PathVariable Long employeeId) {
+        try {
+            List<Package> packages = packageService.getTransportingPackagesByEmployee(employeeId);
+            return ResponseEntity.ok(ApiResponse.success("查询成功", packages));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 送达操作（员工A）
+     */
+    @PostMapping("/packages/{packageId}/deliver")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> deliverPackage(
+            @PathVariable Long packageId,
+            @RequestBody Map<String, Long> request) {
+        try {
+            Long deliveryEmployeeId = request.get("employeeId");
+            if (deliveryEmployeeId == null) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("员工ID不能为空"));
+            }
+
+            Map<String, Object> result = packageService.deliverPackage(packageId, deliveryEmployeeId);
+            return ResponseEntity.ok(ApiResponse.success("送达成功", result));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("送达过程中发生错误：" + e.getMessage()));
         }
     }
 }

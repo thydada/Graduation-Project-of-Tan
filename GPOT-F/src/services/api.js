@@ -99,9 +99,29 @@ const apiService = {
     return api.get('/exception-packages')
   },
 
-  // 获取用户所有包裹（包括临时表和正式表）
-  async getAllUserPackages(userId) {
+  // 获取用户的所有包裹信息（临时包裹、正式包裹、异常包裹）
+  async getUserAllPackages(userId) {
     return api.get(`/packages/user/${userId}/all`)
+  },
+
+  // 获取已入库的包裹列表（员工B出库使用）
+  async getInStockPackages() {
+    return api.get('/packages/in-stock')
+  },
+
+  // 出库操作（员工B）
+  async outboundPackage(packageId, employeeId) {
+    return api.post(`/packages/${packageId}/outbound`, { employeeId })
+  },
+
+  // 获取分配给指定员工的运输中包裹列表（员工A使用）
+  async getTransportingPackages(employeeId) {
+    return api.get(`/packages/transporting/${employeeId}`)
+  },
+
+  // 送达操作（员工A）
+  async deliverPackage(packageId, employeeId) {
+    return api.post(`/packages/${packageId}/deliver`, { employeeId })
   }
 }
 

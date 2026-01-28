@@ -70,6 +70,9 @@ public class Package {
     @Column
     private LocalDateTime pickupDeadline;
 
+    @Column
+    private Long deliveryEmployeeId;
+
     @Column(columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
     private LocalDateTime createTime;
 

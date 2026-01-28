@@ -3,7 +3,8 @@
     <!-- 左侧导航栏 -->
     <div class="sidebar">
       <div class="sidebar-header">
-        <h2 class="sidebar-title">员工管理系统</h2>
+        <h2 class="sidebar-title">GPOT 快递</h2>
+        <p class="sidebar-subtitle">员工工作台</p>
       </div>
 
       <nav class="sidebar-nav">
@@ -20,13 +21,8 @@
       </nav>
 
       <div class="sidebar-footer">
-        <div class="user-badge">
-          <span class="user-icon">👤</span>
-          <span class="user-dept">{{ department }}</span>
-        </div>
         <button @click="handleLogout" class="logout-btn">
-          <span class="nav-icon">退出</span>
-          <span>登录</span>
+          <span>退出登录</span>
         </button>
       </div>
     </div>
@@ -34,9 +30,10 @@
     <!-- 主内容区域 -->
     <div class="main-content">
       <div class="content-header">
-        <h1 class="content-title">{{ currentPageTitle }}</h1>
+        <h1 class="content-title">欢迎使用 GPOT 快递管理系统</h1>
         <div class="user-info">
           <span class="user-name">{{ userName }}</span>
+          <span class="user-dept">部门：{{ department }}</span>
         </div>
       </div>
 
@@ -48,65 +45,87 @@
 </template>
 
 <script>
-import { computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
 
 export default {
   name: 'EmployeeLayout',
   setup() {
     const router = useRouter()
-    const route = useRoute()
+    const userName = ref('')
+    const department = ref('')
 
-    // 从localStorage获取用户信息
-    const userInfo = JSON.parse(localStorage.getItem('user') || '{}')
-    const userName = computed(() => userInfo.realName || userInfo.username || '员工')
-    const department = computed(() => {
-      const dept = userInfo.department || ''
-      const deptMap = {
-        'A': '部门 A（取件审核）',
-        'B': '部门 B（核验入库）'
+    // 根据部门显示不同的菜单项
+    const menuItems = computed(() => {
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
+      const dept = user.department || ''
+      
+      const baseItems = [
+        {
+          name: 'EmployeeProfile',
+          title: '个人信息管理',
+          path: '/employee/profile',
+          icon: '人'
+        }
+      ]
+
+      // 根据部门添加不同的快递管理菜单
+      if (dept === 'A') {
+        baseItems.push({
+          name: 'EmployeePackage',
+          title: '快递取得情况',
+          path: '/employee/package',
+          icon: '件'
+        })
+        baseItems.push({
+          name: 'EmployeeDelivery',
+          title: '快递运送',
+          path: '/employee/delivery',
+          icon: '送'
+        })
+      } else if (dept === 'B') {
+        baseItems.push({
+          name: 'EmployeePackage',
+          title: '快递审核情况',
+          path: '/employee/package',
+          icon: '件'
+        })
+        baseItems.push({
+          name: 'EmployeeOutbound',
+          title: '快递出库',
+          path: '/employee/outbound',
+          icon: '出'
+        })
       }
-      return deptMap[dept] || '员工'
-    })
 
-    // 菜单项
-    const menuItems = [
-      {
-        name: 'EmployeeProfile',
-        title: '个人信息管理',
-        path: '/employee/profile',
-        icon: '个'
-      },
-      {
-        name: 'PageA',
-        title: '快递取件情况审核',
-        path: '/employee/pickup',
-        icon: '审'
-      },
-      {
-        name: 'Exception',
+      // 添加异常件查询
+      baseItems.push({
+        name: 'EmployeeException',
         title: '异常件查询',
         path: '/employee/exception',
         icon: '警'
-      }
-    ]
+      })
 
-    // 计算当前页面标题
-    const currentPageTitle = computed(() => {
-      const currentRoute = menuItems.find(item => item.path === route.path)
-      return currentRoute ? currentRoute.title : '员工管理系统'
+      return baseItems
     })
 
     const handleLogout = () => {
+      // 清除用户会话
       localStorage.removeItem('user')
       router.push('/')
     }
+
+    onMounted(() => {
+      // 从localStorage获取用户信息
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
+      userName.value = user.realName || user.username || '员工'
+      department.value = user.department || '未知'
+    })
 
     return {
       menuItems,
       userName,
       department,
-      currentPageTitle,
       handleLogout
     }
   }
@@ -120,9 +139,9 @@ export default {
   background-color: #f5f5f5;
 }
 
-/* 左侧导航栏 - 红色主题（员工） */
+/* 左侧导航栏 */
 .sidebar {
-  width: 260px;
+  width: 250px;
   background: linear-gradient(180deg, #B22222 0%, #8B0000 100%);
   color: white;
   display: flex;
@@ -138,10 +157,17 @@ export default {
 
 .sidebar-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   text-align: center;
   letter-spacing: 1px;
+}
+
+.sidebar-subtitle {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  text-align: center;
+  opacity: 0.9;
 }
 
 .sidebar-nav {
@@ -176,36 +202,16 @@ export default {
 .nav-icon {
   margin-right: 12px;
   font-size: 18px;
-  font-weight: 600;
 }
 
 .nav-text {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
 }
 
 .sidebar-footer {
-  padding: 16px 20px;
+  padding: 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.user-badge {
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-  margin-bottom: 12px;
-}
-
-.user-icon {
-  margin-right: 8px;
-  font-size: 16px;
-}
-
-.user-dept {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
 }
 
 .logout-btn {
@@ -255,13 +261,20 @@ export default {
 
 .user-info {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
 }
 
 .user-name {
   color: #555555;
   font-size: 16px;
   font-weight: 500;
+}
+
+.user-dept {
+  color: #888888;
+  font-size: 14px;
 }
 
 .content-body {

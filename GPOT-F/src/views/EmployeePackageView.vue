@@ -1,7 +1,7 @@
 <template>
-  <div class="verification-container">
+  <div class="package-container">
     <div class="page-header">
-      <h1>快递审核情况</h1>
+      <h1>{{ pageTitle }}</h1>
       <button class="refresh-btn" @click="fetchPackages" :disabled="loading">
         {{ loading ? '刷新中...' : '刷新列表' }}
       </button>
@@ -12,51 +12,48 @@
       <table class="package-table">
         <thead>
           <tr>
-            <th>快递单号</th>
-            <th>寄件人</th>
-            <th>寄件人电话</th>
-            <th>寄件地址</th>
-            <th>包裹类型</th>
-            <th>重量(kg)</th>
-            <th>入库时间</th>
-            <th>核验状态</th>
+            <th v-for="header in tableHeaders" :key="header.key">{{ header.label }}</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="pkg in packages" :key="pkg.id">
             <td class="tracking-number">{{ pkg.trackingNumber }}</td>
-            <td>{{ pkg.senderName }}</td>
-            <td>{{ pkg.senderPhone }}</td>
-            <td class="address">{{ pkg.senderAddress }}</td>
+            <td v-if="isDepartmentA">{{ pkg.receiverName }}</td>
+            <td v-else>{{ pkg.senderName }}</td>
+            <td v-if="isDepartmentA">{{ pkg.receiverPhone }}</td>
+            <td v-else>{{ pkg.senderPhone }}</td>
+            <td v-if="isDepartmentA" class="address">{{ pkg.receiverAddress }}</td>
+            <td v-else class="address">{{ pkg.senderAddress }}</td>
             <td>{{ pkg.packageType }}</td>
             <td>{{ pkg.weight }}</td>
-            <td>{{ formatDate(pkg.entryTime) }}</td>
+            <td v-if="isDepartmentA">{{ formatDate(pkg.pickupDeadline) }}</td>
+            <td v-else>{{ formatDate(pkg.entryTime) }}</td>
             <td>
-              <span :class="['status-badge', getStatusClass(pkg.verificationSuccess)]">
-                {{ getStatusText(pkg.verificationSuccess) }}
+              <span :class="['status-badge', getStatusClass(pkg)]">
+                {{ getStatusText(pkg) }}
               </span>
             </td>
             <td class="actions">
               <button
                 class="btn btn-success"
-                @click="verificationPackage(pkg.id, 1)"
+                @click="handleSuccess(pkg.id)"
                 :disabled="processingId === pkg.id"
               >
-                核验成功
+                {{ isDepartmentA ? '已取件' : '核验成功' }}
               </button>
               <button
                 class="btn btn-error"
                 @click="openExceptionModal(pkg)"
                 :disabled="processingId === pkg.id"
               >
-                核验出错
+                {{ isDepartmentA ? '取件出错' : '核验出错' }}
               </button>
             </td>
           </tr>
           <tr v-if="packages.length === 0 && !loading">
-            <td colspan="9" class="empty-message">
-              暂无待核验的快递
+            <td :colspan="tableHeaders.length + 1" class="empty-message">
+              {{ emptyMessage }}
             </td>
           </tr>
         </tbody>
@@ -77,7 +74,7 @@
     <div v-if="showExceptionModal" class="modal-overlay" @click.self="closeExceptionModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>报告核验异常</h3>
+          <h3>{{ isDepartmentA ? '报告取件异常' : '报告核验异常' }}</h3>
           <button class="close-btn" @click="closeExceptionModal">&times;</button>
         </div>
         <div class="modal-body">
@@ -89,12 +86,7 @@
             <label for="exceptionType">异常类型：</label>
             <select id="exceptionType" v-model="exceptionType" class="form-control">
               <option value="">请选择异常类型</option>
-              <option value="包裹信息不符">包裹信息不符</option>
-              <option value="包裹破损">包裹破损</option>
-              <option value="包裹丢失">包裹丢失</option>
-              <option value="重量异常">重量异常</option>
-              <option value="物品违禁">物品违禁</option>
-              <option value="其他原因">其他原因</option>
+              <option v-for="type in exceptionTypes" :key="type" :value="type">{{ type }}</option>
             </select>
           </div>
           <div class="form-group">
@@ -124,11 +116,11 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import api from '../services/api'
 
 export default {
-  name: 'PageB',
+  name: 'EmployeePackageView',
   setup() {
     const packages = ref([])
     const loading = ref(false)
@@ -149,14 +141,88 @@ export default {
       return userInfo.id || 1
     }
 
-    // 获取待核验的快递列表
+    // 获取当前部门
+    const isDepartmentA = computed(() => {
+      const userInfo = JSON.parse(localStorage.getItem('user') || '{}')
+      return userInfo.department === 'A'
+    })
+
+    // 页面标题
+    const pageTitle = computed(() => {
+      return isDepartmentA.value ? '快递取得情况' : '快递审核情况'
+    })
+
+    // 空数据提示
+    const emptyMessage = computed(() => {
+      return isDepartmentA.value ? '暂无待审核的快递' : '暂无待核验的快递'
+    })
+
+    // 表格表头
+    const tableHeaders = computed(() => {
+      if (isDepartmentA.value) {
+        return [
+          { key: 'trackingNumber', label: '快递单号' },
+          { key: 'receiverName', label: '收件人' },
+          { key: 'receiverPhone', label: '收件人电话' },
+          { key: 'receiverAddress', label: '收件地址' },
+          { key: 'packageType', label: '包裹类型' },
+          { key: 'weight', label: '重量(kg)' },
+          { key: 'pickupDeadline', label: '取件期限' },
+          { key: 'status', label: '状态' }
+        ]
+      } else {
+        return [
+          { key: 'trackingNumber', label: '快递单号' },
+          { key: 'senderName', label: '寄件人' },
+          { key: 'senderPhone', label: '寄件人电话' },
+          { key: 'senderAddress', label: '寄件地址' },
+          { key: 'packageType', label: '包裹类型' },
+          { key: 'weight', label: '重量(kg)' },
+          { key: 'entryTime', label: '入库时间' },
+          { key: 'status', label: '核验状态' }
+        ]
+      }
+    })
+
+    // 异常类型选项
+    const exceptionTypes = computed(() => {
+      if (isDepartmentA.value) {
+        return [
+          '收件人信息错误',
+          '收件人未取件',
+          '包裹破损',
+          '包裹丢失',
+          '包裹错发',
+          '其他原因'
+        ]
+      } else {
+        return [
+          '包裹信息不符',
+          '包裹破损',
+          '包裹丢失',
+          '重量异常',
+          '物品违禁',
+          '其他原因'
+        ]
+      }
+    })
+
+    // 获取快递列表
     const fetchPackages = async () => {
       loading.value = true
       errorMessage.value = ''
       successMessage.value = ''
 
       try {
-        const response = await api.getVerificationPendingPackages()
+        let response
+        if (isDepartmentA.value) {
+          // 部门A：获取待审核的快递列表
+          response = await api.getPendingPackages()
+        } else {
+          // 部门B：获取待核验的快递列表
+          response = await api.getVerificationPendingPackages()
+        }
+
         if (response.data.success) {
           packages.value = response.data.data
         } else {
@@ -170,30 +236,34 @@ export default {
       }
     }
 
-    // 核验快递 - 员工点击核验成功后执行完整入库流程
-    // 1. 将快递信息写入 package 表
-    // 2. 在 package_entry 表留下入库记录
-    // 3. 从 package_temp 表删除该条数据
-    // 仓库ID和货架ID默认填1
-    const verificationPackage = async (id, status) => {
+    // 处理成功操作
+    const handleSuccess = async (id) => {
       processingId.value = id
       errorMessage.value = ''
       successMessage.value = ''
 
       try {
-        // 调用后端API，传递当前员工ID，仓库ID和货架ID默认传1
+        let response
         const employeeId = getCurrentEmployeeId()
-        const response = await api.verificationPackage(id, status, employeeId, 1, 1)
-        if (response.data.success) {
-          // 核验成功后移除该快递（已完成入库）
-          packages.value = packages.value.filter(p => p.id !== id)
-          successMessage.value = response.data.message || '核验成功，包裹已入库'
+
+        if (isDepartmentA.value) {
+          // 部门A：审核快递取件
+          response = await api.verifyPackage(id, 1)
         } else {
-          errorMessage.value = response.data.message || '核验失败'
+          // 部门B：核验快递入库
+          response = await api.verificationPackage(id, 1, employeeId, 1, 1)
+        }
+
+        if (response.data.success) {
+          // 成功后移除该快递
+          packages.value = packages.value.filter(p => p.id !== id)
+          successMessage.value = response.data.message || (isDepartmentA.value ? '审核成功' : '核验成功，包裹已入库')
+        } else {
+          errorMessage.value = response.data.message || '操作失败'
         }
       } catch (error) {
-        console.error('核验失败:', error)
-        errorMessage.value = error.response?.data?.message || '核验失败，请稍后重试'
+        console.error('操作失败:', error)
+        errorMessage.value = error.response?.data?.message || '操作失败，请稍后重试'
       } finally {
         processingId.value = null
       }
@@ -226,12 +296,15 @@ export default {
       successMessage.value = ''
 
       try {
+        const employeeId = getCurrentEmployeeId()
+        const source = isDepartmentA.value ? 'pickup' : 'verification'
+
         const response = await api.reportException(
           currentExceptionPackage.value.id,
           exceptionType.value,
           exceptionReason.value,
-          1, // 默认员工ID
-          'verification' // 来源：核验异常
+          employeeId,
+          source
         )
 
         if (response.data.success) {
@@ -258,17 +331,27 @@ export default {
     }
 
     // 获取状态文本
-    const getStatusText = (status) => {
-      const statusMap = {
-        0: '待核验',
-        1: '核验成功',
-        2: '核验出错'
+    const getStatusText = (pkg) => {
+      if (isDepartmentA.value) {
+        const statusMap = {
+          0: '待取件',
+          1: '已取件',
+          2: '取件出错'
+        }
+        return statusMap[pkg.pickupSuccess] || '未知'
+      } else {
+        const statusMap = {
+          0: '待核验',
+          1: '核验成功',
+          2: '核验出错'
+        }
+        return statusMap[pkg.verificationSuccess] || '未知'
       }
-      return statusMap[status] || '未知'
     }
 
     // 获取状态样式类
-    const getStatusClass = (status) => {
+    const getStatusClass = (pkg) => {
+      const status = isDepartmentA.value ? pkg.pickupSuccess : pkg.verificationSuccess
       const classMap = {
         0: 'status-pending',
         1: 'status-success',
@@ -288,8 +371,13 @@ export default {
       processingId,
       successMessage,
       errorMessage,
+      pageTitle,
+      emptyMessage,
+      tableHeaders,
+      isDepartmentA,
+      exceptionTypes,
       fetchPackages,
-      verificationPackage,
+      handleSuccess,
       formatDate,
       getStatusText,
       getStatusClass,
@@ -308,10 +396,8 @@ export default {
 </script>
 
 <style scoped>
-.verification-container {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #F5F5F5 0%, #E8E8E8 100%);
-  padding: 24px;
+.package-container {
+  min-height: 100%;
 }
 
 .page-header {
@@ -330,18 +416,19 @@ export default {
 
 .refresh-btn {
   padding: 12px 24px;
-  background: #1E90FF;
+  background: #DC143C;
   color: white;
-  border: 2px solid #1E90FF;
+  border: 2px solid #DC143C;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  border-radius: 0;
 }
 
 .refresh-btn:hover:not(:disabled) {
-  background: #1873CC;
-  border-color: #1873CC;
+  background: #B22222;
+  border-color: #B22222;
 }
 
 .refresh-btn:disabled {
@@ -363,7 +450,7 @@ export default {
 }
 
 .package-table th {
-  background: #1E90FF;
+  background: #DC143C;
   color: white;
   padding: 16px 12px;
   text-align: left;
@@ -378,7 +465,7 @@ export default {
 }
 
 .package-table tr:hover {
-  background: #f0f8ff;
+  background: #fff5f5;
 }
 
 .package-table tr:last-child td {
@@ -388,7 +475,7 @@ export default {
 .tracking-number {
   font-family: monospace;
   font-weight: 600;
-  color: #1E90FF;
+  color: #DC143C;
 }
 
 .address {
@@ -433,6 +520,7 @@ export default {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  border-radius: 0;
 }
 
 .btn:last-child {
@@ -559,7 +647,7 @@ export default {
 
 .tracking-info {
   font-family: monospace;
-  color: #1E90FF;
+  color: #DC143C;
   font-weight: 600;
 }
 
@@ -574,8 +662,8 @@ export default {
 
 .form-control:focus {
   outline: none;
-  border-color: #1E90FF;
-  box-shadow: 0 0 0 2px rgba(30, 144, 255, 0.2);
+  border-color: #DC143C;
+  box-shadow: 0 0 0 2px rgba(220, 20, 60, 0.2);
 }
 
 textarea.form-control {
@@ -609,9 +697,9 @@ textarea.form-control {
 
 .btn-submit {
   padding: 10px 20px;
-  background: #1E90FF;
+  background: #DC143C;
   color: white;
-  border: 1px solid #1E90FF;
+  border: 1px solid #DC143C;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
@@ -620,8 +708,8 @@ textarea.form-control {
 }
 
 .btn-submit:hover:not(:disabled) {
-  background: #1873CC;
-  border-color: #1873CC;
+  background: #B22222;
+  border-color: #B22222;
 }
 
 .btn-submit:disabled {

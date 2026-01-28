@@ -15,4 +15,14 @@ public interface PackageRepository extends JpaRepository<Package, Long> {
     List<Package> findByUserIdOrderByCreateTimeDesc(Long userId);
 
     List<Package> findByUserIdAndStatus(Long userId, String status);
+
+    /**
+     * 根据状态查询包裹列表
+     */
+    List<Package> findByStatusOrderByCreateTimeDesc(String status);
+
+    /**
+     * 根据派送员工ID和状态查询包裹列表
+     */
+    List<Package> findByDeliveryEmployeeIdAndStatusOrderByCreateTimeDesc(Long deliveryEmployeeId, String status);
 }

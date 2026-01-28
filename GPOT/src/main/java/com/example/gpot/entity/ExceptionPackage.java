@@ -48,6 +48,9 @@ public class ExceptionPackage {
     @Column(length = 20, comment = "异常来源（pickup:取件异常, verification:核验异常）")
     private String source;
 
+    @Column(comment = "所属用户ID")
+    private Long userId;
+
     @Column(columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
     private LocalDateTime reportTime;
 
@@ -59,7 +62,7 @@ public class ExceptionPackage {
 
     // 自定义构造函数
     public ExceptionPackage(Long tempPackageId, String trackingNumber, String exceptionType,
-                           String exceptionReason, Long reportEmployeeId, String reportEmployeeName, String source) {
+                           String exceptionReason, Long reportEmployeeId, String reportEmployeeName, String source, Long userId) {
         this.tempPackageId = tempPackageId;
         this.trackingNumber = trackingNumber;
         this.exceptionType = exceptionType;
@@ -68,6 +71,7 @@ public class ExceptionPackage {
         this.reportEmployeeName = reportEmployeeName;
         this.handleStatus = "待处理";
         this.source = source;
+        this.userId = userId;
         this.reportTime = LocalDateTime.now();
         this.updateTime = LocalDateTime.now();
     }

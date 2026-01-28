@@ -175,7 +175,7 @@ export default {
 
           // 根据用户类型和员工部门跳转到不同页面
           if (selectedUserType.value === 'employee') {
-            // 员工登录，跳转到员工系统首页（个人信息管理）
+            // 员工登录，统一跳转到员工布局页面
             router.push('/employee/profile')
           } else if (selectedUserType.value === 'admin') {
             router.push('/welcome')

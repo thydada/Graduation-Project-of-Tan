@@ -1,14 +1,17 @@
 package com.example.gpot.service;
 
-import com.example.gpot.dto.ExceptionReportRequest;
 import com.example.gpot.dto.SendPackageRequest;
 import com.example.gpot.dto.SendPackageResponse;
+import com.example.gpot.entity.Employee;
 import com.example.gpot.entity.ExceptionPackage;
 import com.example.gpot.entity.Package;
 import com.example.gpot.entity.PackageEntry;
+import com.example.gpot.entity.PackageOutbound;
 import com.example.gpot.entity.PackageTemp;
+import com.example.gpot.repository.EmployeeRepository;
 import com.example.gpot.repository.ExceptionPackageRepository;
 import com.example.gpot.repository.PackageEntryRepository;
+import com.example.gpot.repository.PackageOutboundRepository;
 import com.example.gpot.repository.PackageRepository;
 import com.example.gpot.repository.PackageTempRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +36,12 @@ public class PackageService {
 
     @Autowired
     private ExceptionPackageRepository exceptionPackageRepository;
+
+    @Autowired
+    private PackageOutboundRepository packageOutboundRepository;
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
 
     /**
      * 获取所有异常件列表，按报告时间倒序排列
@@ -125,32 +134,6 @@ public class PackageService {
     }
 
     /**
-     * 根据用户ID查询异常件列表
-     * 通过获取用户的所有快递单号，然后查询对应的异常记录
-     */
-    public List<ExceptionPackage> getExceptionPackagesByUserId(Long userId) {
-        // 获取用户的临时包裹
-        List<PackageTemp> tempPackages = packageTempRepository.findByUserIdOrderByCreateTimeDesc(userId);
-        // 获取用户的正式包裹
-        List<Package> formalPackages = packageRepository.findByUserIdOrderByCreateTimeDesc(userId);
-
-        // 收集所有快递单号
-        java.util.List<String> trackingNumbers = new java.util.ArrayList<>();
-        for (PackageTemp temp : tempPackages) {
-            trackingNumbers.add(temp.getTrackingNumber());
-        }
-        for (Package pkg : formalPackages) {
-            trackingNumbers.add(pkg.getTrackingNumber());
-        }
-
-        if (trackingNumbers.isEmpty()) {
-            return new java.util.ArrayList<>();
-        }
-
-        return exceptionPackageRepository.findByTrackingNumberInOrderByReportTimeDesc(trackingNumbers);
-    }
-
-    /**
      * 将临时包裹转移到正式表（取件和核验都成功后调用）
      */
     public Package transferTempPackageToFormal(Long tempPackageId) {
@@ -239,6 +222,12 @@ public class PackageService {
 
         // 3. 更新核验状态为成功
         tempPackage.setVerificationSuccess(1);
+        // 更新status字段
+        if (tempPackage.getPickupSuccess() == 1) {
+            tempPackage.setStatus("审核完成");
+        } else {
+            tempPackage.setStatus("待取件");
+        }
         tempPackage.setUpdateTime(java.time.LocalDateTime.now());
         packageTempRepository.save(tempPackage);
 
@@ -288,6 +277,132 @@ public class PackageService {
         result.put("shelfId", shelfId);
         result.put("entryTime", savedPackage.getEntryTime());
         result.put("message", "核验成功，包裹已入库");
+
+        return result;
+    }
+
+    /**
+     * 获取用户的所有包裹信息（临时包裹、正式包裹、异常包裹）
+     */
+    public Map<String, Object> getUserAllPackages(Long userId) {
+        // 1. 获取用户的临时包裹
+        List<PackageTemp> tempPackages = getTempPackagesByUserId(userId);
+
+        // 2. 获取用户的正式包裹
+        List<Package> formalPackages = getPackagesByUserId(userId);
+
+        // 3. 直接通过用户ID获取用户的异常包裹
+        List<ExceptionPackage> exceptionPackages = exceptionPackageRepository.findByUserIdOrderByReportTimeDesc(userId);
+
+        // 构建返回结果
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("tempPackages", tempPackages);
+        result.put("formalPackages", formalPackages);
+        result.put("exceptionPackages", exceptionPackages);
+
+        return result;
+    }
+
+    /**
+     * 获取已入库的包裹列表（供员工B出库使用）
+     */
+    public List<Package> getInStockPackages() {
+        return packageRepository.findByStatusOrderByCreateTimeDesc("已入库");
+    }
+
+    /**
+     * 出库操作：将包裹状态改为运输中，创建出库记录，随机分配给员工A
+     */
+    @Transactional
+    public Map<String, Object> outboundPackage(Long packageId, Long outboundEmployeeId) {
+        // 1. 查询包裹
+        Optional<Package> packageOpt = packageRepository.findById(packageId);
+        if (!packageOpt.isPresent()) {
+            throw new RuntimeException("包裹不存在");
+        }
+
+        Package pkg = packageOpt.get();
+
+        // 2. 检查包裹状态
+        if (!"已入库".equals(pkg.getStatus())) {
+            throw new RuntimeException("只有已入库的包裹才能出库");
+        }
+
+        // 3. 随机选择一个部门A的员工
+        List<Employee> departmentAEmployees = employeeRepository.findByDepartment("A");
+        if (departmentAEmployees.isEmpty()) {
+            throw new RuntimeException("没有可用的派送员工（部门A）");
+        }
+
+        // 随机选择
+        Employee deliveryEmployee = departmentAEmployees.get((int)(Math.random() * departmentAEmployees.size()));
+
+        // 4. 更新包裹状态和派送员工
+        pkg.setStatus("运输中");
+        pkg.setDeliveryEmployeeId(deliveryEmployee.getId());
+        pkg.setUpdateTime(java.time.LocalDateTime.now());
+        packageRepository.save(pkg);
+
+        // 5. 创建出库记录
+        PackageOutbound outbound = new PackageOutbound();
+        outbound.setPackageId(packageId);
+        outbound.setOutboundEmployeeId(outboundEmployeeId);
+        outbound.setDeliveryEmployeeId(deliveryEmployee.getId());
+        outbound.setOutboundTime(java.time.LocalDateTime.now());
+        PackageOutbound savedOutbound = packageOutboundRepository.save(outbound);
+
+        // 6. 返回结果
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("outboundId", savedOutbound.getId());
+        result.put("packageId", pkg.getId());
+        result.put("trackingNumber", pkg.getTrackingNumber());
+        result.put("status", pkg.getStatus());
+        result.put("deliveryEmployeeId", deliveryEmployee.getId());
+        result.put("deliveryEmployeeName", deliveryEmployee.getRealName());
+        result.put("outboundTime", savedOutbound.getOutboundTime());
+
+        return result;
+    }
+
+    /**
+     * 获取分配给指定员工的运输中包裹列表（供员工A使用）
+     */
+    public List<Package> getTransportingPackagesByEmployee(Long employeeId) {
+        return packageRepository.findByDeliveryEmployeeIdAndStatusOrderByCreateTimeDesc(employeeId, "运输中");
+    }
+
+    /**
+     * 送达操作：将包裹状态改为待取件
+     */
+    @Transactional
+    public Map<String, Object> deliverPackage(Long packageId, Long deliveryEmployeeId) {
+        // 1. 查询包裹
+        Optional<Package> packageOpt = packageRepository.findById(packageId);
+        if (!packageOpt.isPresent()) {
+            throw new RuntimeException("包裹不存在");
+        }
+
+        Package pkg = packageOpt.get();
+
+        // 2. 检查包裹状态和派送员工
+        if (!"运输中".equals(pkg.getStatus())) {
+            throw new RuntimeException("只有运输中的包裹才能标记为送达");
+        }
+
+        if (!deliveryEmployeeId.equals(pkg.getDeliveryEmployeeId())) {
+            throw new RuntimeException("该包裹不是分配给您的，无法操作");
+        }
+
+        // 3. 更新包裹状态
+        pkg.setStatus("待取件");
+        pkg.setUpdateTime(java.time.LocalDateTime.now());
+        packageRepository.save(pkg);
+
+        // 4. 返回结果
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("packageId", pkg.getId());
+        result.put("trackingNumber", pkg.getTrackingNumber());
+        result.put("status", pkg.getStatus());
 
         return result;
     }

@@ -2,13 +2,17 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import MainLayout from '../views/MainLayout.vue'
 import SendPackageView from '../views/SendPackageView.vue'
+import UserPackagesView from '../views/UserPackagesView.vue'
 import WelcomeView from '../views/WelcomeView.vue'
 import PageA from '../views/PageA.vue'
 import PageB from '../views/PageB.vue'
 import ExceptionView from '../views/ExceptionView.vue'
 import EmployeeLayout from '../views/EmployeeLayout.vue'
-import EmployeeProfile from '../views/EmployeeProfile.vue'
-import TrackPackageView from '../views/TrackPackageView.vue'
+import EmployeeProfileView from '../views/EmployeeProfileView.vue'
+import EmployeePackageView from '../views/EmployeePackageView.vue'
+import EmployeeExceptionView from '../views/EmployeeExceptionView.vue'
+import EmployeeOutboundView from '../views/EmployeeOutboundView.vue'
+import EmployeeDeliveryView from '../views/EmployeeDeliveryView.vue'
 
 const routes = [
   {
@@ -20,6 +24,7 @@ const routes = [
     path: '/main',
     name: 'Main',
     component: MainLayout,
+    redirect: '/main/send-package',
     children: [
       {
         path: 'send-package',
@@ -27,9 +32,9 @@ const routes = [
         component: SendPackageView
       },
       {
-        path: 'track-package',
-        name: 'TrackPackage',
-        component: TrackPackageView
+        path: 'packages',
+        name: 'UserPackages',
+        component: UserPackagesView
       }
     ]
   },
@@ -37,29 +42,6 @@ const routes = [
     path: '/welcome',
     name: 'Welcome',
     component: WelcomeView
-  },
-  // 员工系统布局
-  {
-    path: '/employee',
-    name: 'Employee',
-    component: EmployeeLayout,
-    children: [
-      {
-        path: 'profile',
-        name: 'EmployeeProfile',
-        component: EmployeeProfile
-      },
-      {
-        path: 'pickup',
-        name: 'EmployeePickup',
-        component: PageA
-      },
-      {
-        path: 'exception',
-        name: 'EmployeeException',
-        component: ExceptionView
-      }
-    ]
   },
   {
     path: '/page-a',
@@ -75,6 +57,39 @@ const routes = [
     path: '/exception',
     name: 'ExceptionStandalone',
     component: ExceptionView
+  },
+  {
+    path: '/employee',
+    name: 'Employee',
+    component: EmployeeLayout,
+    redirect: '/employee/profile',
+    children: [
+      {
+        path: 'profile',
+        name: 'EmployeeProfile',
+        component: EmployeeProfileView
+      },
+      {
+        path: 'package',
+        name: 'EmployeePackage',
+        component: EmployeePackageView
+      },
+      {
+        path: 'exception',
+        name: 'EmployeeException',
+        component: EmployeeExceptionView
+      },
+      {
+        path: 'outbound',
+        name: 'EmployeeOutbound',
+        component: EmployeeOutboundView
+      },
+      {
+        path: 'delivery',
+        name: 'EmployeeDelivery',
+        component: EmployeeDeliveryView
+      }
+    ]
   }
 ]
 

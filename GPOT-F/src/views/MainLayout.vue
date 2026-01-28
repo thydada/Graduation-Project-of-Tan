@@ -61,12 +61,11 @@ export default {
         icon: '寄'
       },
       {
-        name: 'TrackPackage',
-        title: '寄件跟踪',
-        path: '/main/track-package',
-        icon: '跟'
+        name: 'UserPackages',
+        title: '我的包裹',
+        path: '/main/packages',
+        icon: '件'
       }
-      // 可以在这里添加更多菜单项
     ]
 
     const handleLogout = () => {

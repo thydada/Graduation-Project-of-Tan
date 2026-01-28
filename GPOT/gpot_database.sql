@@ -11,7 +11,7 @@
  Target Server Version : 80042
  File Encoding         : 65001
 
- Date: 21/01/2026 18:15:24
+ Date: 28/01/2026 10:25:05
 */
 
 SET NAMES utf8mb4;
@@ -77,7 +77,7 @@ CREATE TABLE `employee`  (
   `update_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP(0) COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `username`(`username`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '员工表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '员工表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of employee
@@ -91,7 +91,7 @@ INSERT INTO `employee` VALUES (2, 'thydada2', '12345', '韩立', '18114523658', 
 DROP TABLE IF EXISTS `exception_package`;
 CREATE TABLE `exception_package`  (
   `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '异常件ID',
-  `package_id` bigint(0) NOT NULL COMMENT '包裹ID',
+  `package_id` bigint(0) NULL DEFAULT NULL COMMENT '包裹ID（正式包裹ID，可为空）',
   `exception_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '异常类型',
   `exception_reason` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '异常原因',
   `report_employee_id` bigint(0) NOT NULL COMMENT '报告员工ID',
@@ -104,14 +104,38 @@ CREATE TABLE `exception_package`  (
   `report_employee_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '报告员工姓名',
   `source` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '异常来源（pickup:取件异常, verification:核验异常）',
   `tracking_number` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '快递单号',
+  `temp_package_id` bigint(0) NOT NULL COMMENT '临时包裹ID',
+  `user_id` bigint(0) NULL DEFAULT NULL COMMENT '所属用户ID',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `package_id`(`package_id`) USING BTREE,
   INDEX `report_employee_id`(`report_employee_id`) USING BTREE,
   INDEX `handle_employee_id`(`handle_employee_id`) USING BTREE,
-  CONSTRAINT `exception_package_ibfk_1` FOREIGN KEY (`package_id`) REFERENCES `package` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  INDEX `temp_package_id`(`temp_package_id`) USING BTREE,
+  INDEX `user_id`(`user_id`) USING BTREE,
+  CONSTRAINT `exception_package_ibfk_1` FOREIGN KEY (`package_id`) REFERENCES `package` (`id`) ON DELETE SET NULL ON UPDATE SET NULL,
   CONSTRAINT `exception_package_ibfk_2` FOREIGN KEY (`report_employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `exception_package_ibfk_3` FOREIGN KEY (`handle_employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `exception_package_ibfk_3` FOREIGN KEY (`handle_employee_id`) REFERENCES `employee` (`id`) ON DELETE SET NULL ON UPDATE SET NULL,
+  CONSTRAINT `exception_package_ibfk_4` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '异常件表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of exception_package
+-- ----------------------------
+-- 注意：如果表已存在，需要先执行以下ALTER TABLE语句添加user_id字段：
+-- ALTER TABLE `exception_package` ADD COLUMN `user_id` bigint(0) NULL DEFAULT NULL COMMENT '所属用户ID' AFTER `temp_package_id`;
+-- ALTER TABLE `exception_package` ADD INDEX `user_id`(`user_id`);
+-- ALTER TABLE `exception_package` ADD CONSTRAINT `exception_package_ibfk_4` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT;
+-- 
+-- 对于现有记录，可以通过以下方式更新user_id（如果临时包裹表或正式包裹表中还有对应记录）：
+-- UPDATE exception_package ep
+-- LEFT JOIN package_temp pt ON ep.temp_package_id = pt.id
+-- LEFT JOIN package p ON ep.tracking_number = p.tracking_number
+-- SET ep.user_id = COALESCE(pt.user_id, p.user_id)
+-- WHERE ep.user_id IS NULL;
+
+INSERT INTO `exception_package` VALUES (1, NULL, '收件人信息错误', '1', 1, NULL, '待处理', NULL, '2026-01-27 05:14:39', NULL, '2026-01-27 05:14:39', '员工1', 'pickup', 'GPOT1768974623161772', 2, NULL);
+INSERT INTO `exception_package` VALUES (2, NULL, '收件人信息错误', 'ddd', 1, NULL, '待处理', NULL, '2026-01-27 07:41:44', NULL, '2026-01-27 07:41:44', '员工1', 'pickup', 'GPOT1769496024858189', 3, NULL);
+INSERT INTO `exception_package` VALUES (3, NULL, '包裹信息不符', 'ddd', 2, NULL, '待处理', NULL, '2026-01-28 02:19:17', NULL, '2026-01-28 02:19:17', '员工2', 'verification', 'GPOT1769566720589978', 5, NULL);
 
 -- ----------------------------
 -- Table structure for inventory_check
@@ -134,7 +158,7 @@ CREATE TABLE `inventory_check`  (
   INDEX `employee_id`(`employee_id`) USING BTREE,
   CONSTRAINT `inventory_check_ibfk_1` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `inventory_check_ibfk_2` FOREIGN KEY (`employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '库存盘点表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '库存盘点表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for message
@@ -180,7 +204,7 @@ CREATE TABLE `operation_stats`  (
   INDEX `warehouse_id`(`warehouse_id`) USING BTREE,
   INDEX `idx_operation_stats_date`(`stats_date`) USING BTREE,
   CONSTRAINT `operation_stats_ibfk_1` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '运营统计表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '运营统计表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for overdue_package
@@ -198,7 +222,7 @@ CREATE TABLE `overdue_package`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `package_id`(`package_id`) USING BTREE,
   CONSTRAINT `overdue_package_ibfk_1` FOREIGN KEY (`package_id`) REFERENCES `package` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '逾期件表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '逾期件表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for package
@@ -223,6 +247,7 @@ CREATE TABLE `package`  (
   `entry_time` datetime(0) NULL DEFAULT NULL COMMENT '入库时间',
   `user_id` bigint(0) NULL DEFAULT NULL COMMENT '所属用户ID',
   `pickup_deadline` datetime(0) NULL DEFAULT NULL COMMENT '取件截止时间',
+  `delivery_employee_id` bigint(0) NULL DEFAULT NULL COMMENT '派送员工ID（员工A）',
   `create_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP(0) COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
@@ -233,16 +258,19 @@ CREATE TABLE `package`  (
   INDEX `idx_package_tracking`(`tracking_number`) USING BTREE,
   INDEX `idx_package_status`(`status`) USING BTREE,
   INDEX `idx_package_user`(`user_id`) USING BTREE,
+  INDEX `delivery_employee_id`(`delivery_employee_id`) USING BTREE,
   CONSTRAINT `package_ibfk_1` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_ibfk_2` FOREIGN KEY (`shelf_id`) REFERENCES `shelf` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_ibfk_3` FOREIGN KEY (`entry_employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `package_ibfk_4` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `package_ibfk_4` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `package_ibfk_5` FOREIGN KEY (`delivery_employee_id`) REFERENCES `employee` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
 ) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '快递包裹表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of package
 -- ----------------------------
 INSERT INTO `package` VALUES (3, 'GPOT1768630138407132', '谭浩毅', '19826151596', '测试3', '韩立', '18862666020', '测试4', '食品', 2.00, '30x20x10', '已入库', 1, 1, 1, '2026-01-21 05:04:19', 1, NULL, '2026-01-21 05:04:19', NULL);
+INSERT INTO `package` VALUES (4, 'GPOT1769499626646342', '谭浩毅', '19826151596', 'aaa', '韩立', '18862666020', 'bbb', '食品', 2.00, '30x20x50', '已入库', 1, 1, 2, '2026-01-28 02:08:57', 4, NULL, '2026-01-28 02:08:57', NULL);
 
 -- ----------------------------
 -- Table structure for package_entry
@@ -273,6 +301,7 @@ CREATE TABLE `package_entry`  (
 -- Records of package_entry
 -- ----------------------------
 INSERT INTO `package_entry` VALUES (1, 3, 1, 1, 1, '扫码录入', '2026-01-21 05:04:20', '核验成功后自动入库', '2026-01-21 05:04:20');
+INSERT INTO `package_entry` VALUES (2, 4, 2, 1, 1, '扫码录入', '2026-01-28 02:08:57', '核验成功后自动入库', '2026-01-28 02:08:57');
 
 -- ----------------------------
 -- Table structure for package_temp
@@ -314,11 +343,6 @@ CREATE TABLE `package_temp`  (
 ) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '临时包裹表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Records of package_temp
--- ----------------------------
-INSERT INTO `package_temp` VALUES (2, 'GPOT1768974623161772', '谭浩毅', '19826151596', '测试5555', '韩立', '18862666020', '测试6666', '文件', 2.00, '30x20x50', '待入库', NULL, NULL, NULL, NULL, 1, NULL, 0, 0, '2026-01-21 05:50:23', NULL);
-
--- ----------------------------
 -- Table structure for pickup_code
 -- ----------------------------
 DROP TABLE IF EXISTS `pickup_code`;
@@ -335,7 +359,7 @@ CREATE TABLE `pickup_code`  (
   INDEX `package_id`(`package_id`) USING BTREE,
   INDEX `idx_pickup_code_code`(`code`) USING BTREE,
   CONSTRAINT `pickup_code_ibfk_1` FOREIGN KEY (`package_id`) REFERENCES `package` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '取件码表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '取件码表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for pickup_record
@@ -357,7 +381,7 @@ CREATE TABLE `pickup_record`  (
   CONSTRAINT `pickup_record_ibfk_1` FOREIGN KEY (`package_id`) REFERENCES `package` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `pickup_record_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `pickup_record_ibfk_3` FOREIGN KEY (`employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '取件记录表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '取件记录表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for shelf
@@ -409,6 +433,7 @@ CREATE TABLE `user`  (
 INSERT INTO `user` VALUES (1, 'thydada', '12345', '谭浩毅', NULL, NULL, NULL, 1, NULL, NULL);
 INSERT INTO `user` VALUES (2, 'thydada2', '12345', '韩立', NULL, NULL, NULL, 1, '2026-01-14 02:28:31', NULL);
 INSERT INTO `user` VALUES (3, 'thydada3', '12345', '张三', NULL, NULL, NULL, 1, '2026-01-15 05:06:56', NULL);
+INSERT INTO `user` VALUES (4, 'thydada4', '123', '微软', NULL, NULL, NULL, 1, '2026-01-27 07:39:58', NULL);
 
 -- ----------------------------
 -- Table structure for warehouse
@@ -433,5 +458,26 @@ CREATE TABLE `warehouse`  (
 -- Records of warehouse
 -- ----------------------------
 INSERT INTO `warehouse` VALUES (1, '默认仓库', 'WH001', '默认地址', NULL, 1, '2026-01-21 13:04:08', '2026-01-21 13:04:08');
+
+-- ----------------------------
+-- Table structure for package_outbound
+-- ----------------------------
+DROP TABLE IF EXISTS `package_outbound`;
+CREATE TABLE `package_outbound`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '出库记录ID',
+  `package_id` bigint(0) NOT NULL COMMENT '包裹ID',
+  `outbound_employee_id` bigint(0) NOT NULL COMMENT '出库员工ID（员工B）',
+  `delivery_employee_id` bigint(0) NOT NULL COMMENT '派送员工ID（员工A）',
+  `outbound_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP COMMENT '出库时间',
+  `remarks` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '备注',
+  `create_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `package_id`(`package_id`) USING BTREE,
+  INDEX `outbound_employee_id`(`outbound_employee_id`) USING BTREE,
+  INDEX `delivery_employee_id`(`delivery_employee_id`) USING BTREE,
+  CONSTRAINT `package_outbound_ibfk_1` FOREIGN KEY (`package_id`) REFERENCES `package` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `package_outbound_ibfk_2` FOREIGN KEY (`outbound_employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `package_outbound_ibfk_3` FOREIGN KEY (`delivery_employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '出库记录表' ROW_FORMAT = Dynamic;
 
 SET FOREIGN_KEY_CHECKS = 1;
