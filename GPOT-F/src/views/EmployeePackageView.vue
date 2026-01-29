@@ -2,9 +2,29 @@
   <div class="package-container">
     <div class="page-header">
       <h1>{{ pageTitle }}</h1>
-      <button class="refresh-btn" @click="fetchPackages" :disabled="loading">
-        {{ loading ? '刷新中...' : '刷新列表' }}
-      </button>
+      <div class="header-actions">
+        <div v-if="!isDepartmentA" class="shelf-selector">
+          <label class="selector-label">货架：</label>
+          <select v-model.number="selectedShelfId" class="shelf-select" @change="saveShelfSelection">
+            <option :value="null">请选择货架</option>
+            <option :value="1">货架1（普通）</option>
+            <option :value="2">货架2（普通）</option>
+            <option :value="3">货架3（普通）</option>
+            <option :value="4">货架4（大货架）</option>
+          </select>
+          <label class="selector-label">层数：</label>
+          <select v-model.number="selectedShelfLayer" class="shelf-select" :disabled="!selectedShelfId" @change="saveShelfSelection">
+            <option :value="null">请选择层数</option>
+            <option v-for="layer in 4" :key="layer" :value="layer">第{{ layer }}层</option>
+          </select>
+          <span v-if="selectedShelfId && selectedShelfLayer" class="selection-info">
+            当前选择：货架{{ selectedShelfId }} 第{{ selectedShelfLayer }}层
+          </span>
+        </div>
+        <button class="refresh-btn" @click="fetchPackages" :disabled="loading">
+          {{ loading ? '刷新中...' : '刷新列表' }}
+        </button>
+      </div>
     </div>
 
     <!-- 快递列表表格 -->
@@ -74,7 +94,7 @@
     <div v-if="showExceptionModal" class="modal-overlay" @click.self="closeExceptionModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>{{ isDepartmentA ? '报告取件异常' : '报告核验异常' }}</h3>
+          <h3>{{ isDepartmentA ? '报告取件异常' : '报告入库异常' }}</h3>
           <button class="close-btn" @click="closeExceptionModal">&times;</button>
         </div>
         <div class="modal-body">
@@ -128,6 +148,10 @@ export default {
     const successMessage = ref('')
     const errorMessage = ref('')
 
+    // 货架和层数选择
+    const selectedShelfId = ref(null)
+    const selectedShelfLayer = ref(null)
+
     // 异常弹窗相关
     const showExceptionModal = ref(false)
     const currentExceptionPackage = ref(null)
@@ -149,12 +173,12 @@ export default {
 
     // 页面标题
     const pageTitle = computed(() => {
-      return isDepartmentA.value ? '快递取得情况' : '快递审核情况'
+      return isDepartmentA.value ? '快递取得情况' : '快递入库'
     })
 
     // 空数据提示
     const emptyMessage = computed(() => {
-      return isDepartmentA.value ? '暂无待审核的快递' : '暂无待核验的快递'
+      return isDepartmentA.value ? '暂无待审核的快递' : '暂无待入库的快递'
     })
 
     // 表格表头
@@ -179,7 +203,7 @@ export default {
           { key: 'packageType', label: '包裹类型' },
           { key: 'weight', label: '重量(kg)' },
           { key: 'entryTime', label: '入库时间' },
-          { key: 'status', label: '核验状态' }
+          { key: 'status', label: '入库状态' }
         ]
       }
     })
@@ -219,7 +243,7 @@ export default {
           // 部门A：获取待审核的快递列表
           response = await api.getPendingPackages()
         } else {
-          // 部门B：获取待核验的快递列表
+          // 部门B：获取待入库的快递列表
           response = await api.getVerificationPendingPackages()
         }
 
@@ -233,6 +257,26 @@ export default {
         errorMessage.value = error.response?.data?.message || '获取快递列表失败，请稍后重试'
       } finally {
         loading.value = false
+      }
+    }
+
+    // 保存货架选择到localStorage
+    const saveShelfSelection = () => {
+      if (selectedShelfId.value && selectedShelfLayer.value) {
+        localStorage.setItem('selectedShelfId', selectedShelfId.value.toString())
+        localStorage.setItem('selectedShelfLayer', selectedShelfLayer.value.toString())
+      }
+    }
+
+    // 从localStorage加载货架选择
+    const loadShelfSelection = () => {
+      const savedShelfId = localStorage.getItem('selectedShelfId')
+      const savedShelfLayer = localStorage.getItem('selectedShelfLayer')
+      if (savedShelfId) {
+        selectedShelfId.value = parseInt(savedShelfId)
+      }
+      if (savedShelfLayer) {
+        selectedShelfLayer.value = parseInt(savedShelfLayer)
       }
     }
 
@@ -250,14 +294,27 @@ export default {
           // 部门A：审核快递取件
           response = await api.verifyPackage(id, 1)
         } else {
-          // 部门B：核验快递入库
-          response = await api.verificationPackage(id, 1, employeeId, 1, 1)
+          // 部门B：入库快递
+          // 检查是否选择了货架和层数
+          if (!selectedShelfId.value || !selectedShelfLayer.value) {
+            errorMessage.value = '请先选择货架和层数'
+            processingId.value = null
+            return
+          }
+          response = await api.verificationPackage(
+            id, 
+            1, 
+            employeeId, 
+            1, // warehouseId 默认1
+            selectedShelfId.value,
+            selectedShelfLayer.value
+          )
         }
 
         if (response.data.success) {
           // 成功后移除该快递
           packages.value = packages.value.filter(p => p.id !== id)
-          successMessage.value = response.data.message || (isDepartmentA.value ? '审核成功' : '核验成功，包裹已入库')
+          successMessage.value = response.data.message || (isDepartmentA.value ? '审核成功' : '入库成功')
         } else {
           errorMessage.value = response.data.message || '操作失败'
         }
@@ -341,9 +398,9 @@ export default {
         return statusMap[pkg.pickupSuccess] || '未知'
       } else {
         const statusMap = {
-          0: '待核验',
-          1: '核验成功',
-          2: '核验出错'
+          0: '待入库',
+          1: '入库成功',
+          2: '入库出错'
         }
         return statusMap[pkg.verificationSuccess] || '未知'
       }
@@ -362,6 +419,9 @@ export default {
 
     // 页面加载时获取数据
     onMounted(() => {
+      if (!isDepartmentA.value) {
+        loadShelfSelection()
+      }
       fetchPackages()
     })
 
@@ -389,7 +449,11 @@ export default {
       submitting,
       openExceptionModal,
       closeExceptionModal,
-      submitException
+      submitException,
+      // 货架选择相关
+      selectedShelfId,
+      selectedShelfLayer,
+      saveShelfSelection
     }
   }
 }
@@ -405,6 +469,61 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.shelf-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #f8f8f8;
+  border: 2px solid #DC143C;
+  border-radius: 4px;
+}
+
+.selector-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+}
+
+.shelf-select {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.shelf-select:focus {
+  outline: none;
+  border-color: #DC143C;
+  box-shadow: 0 0 0 2px rgba(220, 20, 60, 0.2);
+}
+
+.shelf-select:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.selection-info {
+  font-size: 14px;
+  color: #DC143C;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .page-header h1 {

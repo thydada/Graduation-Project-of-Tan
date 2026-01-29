@@ -1,7 +1,7 @@
 <template>
   <div class="verification-container">
     <div class="page-header">
-      <h1>快递审核情况</h1>
+      <h1>快递入库</h1>
       <button class="refresh-btn" @click="fetchPackages" :disabled="loading">
         {{ loading ? '刷新中...' : '刷新列表' }}
       </button>
@@ -19,7 +19,7 @@
             <th>包裹类型</th>
             <th>重量(kg)</th>
             <th>入库时间</th>
-            <th>核验状态</th>
+            <th>入库状态</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -43,20 +43,20 @@
                 @click="verificationPackage(pkg.id, 1)"
                 :disabled="processingId === pkg.id"
               >
-                核验成功
+                入库成功
               </button>
               <button
                 class="btn btn-error"
                 @click="openExceptionModal(pkg)"
                 :disabled="processingId === pkg.id"
               >
-                核验出错
+                入库出错
               </button>
             </td>
           </tr>
           <tr v-if="packages.length === 0 && !loading">
             <td colspan="9" class="empty-message">
-              暂无待核验的快递
+              暂无待入库的快递
             </td>
           </tr>
         </tbody>
@@ -77,7 +77,7 @@
     <div v-if="showExceptionModal" class="modal-overlay" @click.self="closeExceptionModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>报告核验异常</h3>
+          <h3>报告入库异常</h3>
           <button class="close-btn" @click="closeExceptionModal">&times;</button>
         </div>
         <div class="modal-body">
@@ -149,7 +149,7 @@ export default {
       return userInfo.id || 1
     }
 
-    // 获取待核验的快递列表
+    // 获取待入库的快递列表
     const fetchPackages = async () => {
       loading.value = true
       errorMessage.value = ''
@@ -170,7 +170,7 @@ export default {
       }
     }
 
-    // 核验快递 - 员工点击核验成功后执行完整入库流程
+    // 入库快递 - 员工点击入库成功后执行完整入库流程
     // 1. 将快递信息写入 package 表
     // 2. 在 package_entry 表留下入库记录
     // 3. 从 package_temp 表删除该条数据
@@ -185,15 +185,15 @@ export default {
         const employeeId = getCurrentEmployeeId()
         const response = await api.verificationPackage(id, status, employeeId, 1, 1)
         if (response.data.success) {
-          // 核验成功后移除该快递（已完成入库）
+          // 入库成功后移除该快递
           packages.value = packages.value.filter(p => p.id !== id)
-          successMessage.value = response.data.message || '核验成功，包裹已入库'
+          successMessage.value = response.data.message || '入库成功'
         } else {
-          errorMessage.value = response.data.message || '核验失败'
+          errorMessage.value = response.data.message || '入库失败'
         }
       } catch (error) {
-        console.error('核验失败:', error)
-        errorMessage.value = error.response?.data?.message || '核验失败，请稍后重试'
+        console.error('入库失败:', error)
+        errorMessage.value = error.response?.data?.message || '入库失败，请稍后重试'
       } finally {
         processingId.value = null
       }
@@ -231,7 +231,7 @@ export default {
           exceptionType.value,
           exceptionReason.value,
           1, // 默认员工ID
-          'verification' // 来源：核验异常
+          'verification' // 来源：入库异常
         )
 
         if (response.data.success) {
@@ -260,9 +260,9 @@ export default {
     // 获取状态文本
     const getStatusText = (status) => {
       const statusMap = {
-        0: '待核验',
-        1: '核验成功',
-        2: '核验出错'
+        0: '待入库',
+        1: '入库成功',
+        2: '入库出错'
       }
       return statusMap[status] || '未知'
     }

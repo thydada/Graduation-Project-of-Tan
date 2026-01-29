@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,6 +44,24 @@ public class PackageService {
 
     @Autowired
     private EmployeeRepository employeeRepository;
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final char[] PICKUP_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
+
+    private String generatePickupCode(Long shelfId, Integer shelfLayer) {
+        String prefix = String.valueOf(shelfId) + "-" + String.valueOf(shelfLayer) + "-";
+        for (int i = 0; i < 20; i++) {
+            StringBuilder sb = new StringBuilder(6);
+            for (int j = 0; j < 6; j++) {
+                sb.append(PICKUP_CODE_CHARS[SECURE_RANDOM.nextInt(PICKUP_CODE_CHARS.length)]);
+            }
+            String code = prefix + sb.toString();
+            if (!packageRepository.existsByPickupCode(code)) {
+                return code;
+            }
+        }
+        throw new RuntimeException("生成取件码失败");
+    }
 
     /**
      * 获取所有异常件列表，按报告时间倒序排列
@@ -203,15 +223,119 @@ public class PackageService {
     }
 
     /**
+     * 根据包裹大小自动分配货架和层数
+     * @param size 包裹尺寸（格式：长x宽x高，单位cm）
+     * @param weight 包裹重量（kg）
+     * @param warehouseId 仓库ID
+     * @return 包含shelfId和shelfLayer的Map
+     */
+    private Map<String, Object> allocateShelfAndLayer(String size, BigDecimal weight, Long warehouseId) {
+        // 判断包裹大小
+        boolean isLargePackage = false;
+        
+        // 解析尺寸
+        if (size != null && !size.trim().isEmpty()) {
+            try {
+                String[] dimensions = size.split("x");
+                if (dimensions.length == 3) {
+                    double length = Double.parseDouble(dimensions[0].trim());
+                    double width = Double.parseDouble(dimensions[1].trim());
+                    double height = Double.parseDouble(dimensions[2].trim());
+                    double volume = length * width * height; // 体积（cm³）
+                    
+                    // 如果体积大于50000 cm³（约0.05立方米）或重量大于5kg，使用大货架
+                    if (volume > 50000 || (weight != null && weight.compareTo(new BigDecimal("5")) > 0)) {
+                        isLargePackage = true;
+                    }
+                }
+            } catch (Exception e) {
+                // 解析失败，默认使用普通货架
+            }
+        } else if (weight != null && weight.compareTo(new BigDecimal("5")) > 0) {
+            // 如果没有尺寸信息，仅根据重量判断
+            isLargePackage = true;
+        }
+        
+        Long selectedShelfId;
+        Integer selectedLayer;
+        
+        if (isLargePackage) {
+            // 使用大货架（货架4）
+            selectedShelfId = 4L;
+            selectedLayer = findAvailableLayer(selectedShelfId, warehouseId, 5); // 大货架每层5容量
+        } else {
+            // 使用普通货架（货架1、2、3），选择使用量最少的货架
+            selectedShelfId = findBestNormalShelf(warehouseId);
+            selectedLayer = findAvailableLayer(selectedShelfId, warehouseId, 10); // 普通货架每层10容量
+        }
+        
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("shelfId", selectedShelfId);
+        result.put("shelfLayer", selectedLayer);
+        return result;
+    }
+    
+    /**
+     * 查找最佳普通货架（使用量最少的）
+     */
+    private Long findBestNormalShelf(Long warehouseId) {
+        List<Long> normalShelfIds = List.of(1L, 2L, 3L);
+        Long bestShelfId = 1L;
+        int minCount = Integer.MAX_VALUE;
+        
+        for (Long shelfId : normalShelfIds) {
+            int totalCount = 0;
+            for (int layer = 1; layer <= 4; layer++) {
+                long count = packageRepository.countByShelfIdAndShelfLayerAndStatusNot(
+                    shelfId, layer, "已取件");
+                totalCount += count;
+            }
+            
+            if (totalCount < minCount) {
+                minCount = totalCount;
+                bestShelfId = shelfId;
+            }
+        }
+        
+        return bestShelfId;
+    }
+    
+    /**
+     * 查找指定货架的可用层数
+     * @param shelfId 货架ID
+     * @param warehouseId 仓库ID
+     * @param layerCapacity 每层容量
+     * @return 可用层数（1-4）
+     */
+    private Integer findAvailableLayer(Long shelfId, Long warehouseId, int layerCapacity) {
+        int bestLayer = 1;
+        int minCount = Integer.MAX_VALUE;
+        
+        for (int layer = 1; layer <= 4; layer++) {
+            long count = packageRepository.countByShelfIdAndShelfLayerAndStatusNot(
+                shelfId, layer, "已取件");
+            
+            if (count < layerCapacity && count < minCount) {
+                minCount = (int) count;
+                bestLayer = layer;
+            }
+        }
+        
+        // 如果所有层都满了，返回第一层
+        return bestLayer;
+    }
+
+    /**
      * 核验成功后转移包裹到正式表并创建入库记录
      * @param tempPackageId 临时包裹ID
      * @param employeeId 操作员工ID
-     * @param warehouseId 仓库ID（默认1）
-     * @param shelfId 货架ID（默认1）
+     * @param warehouseId 仓库ID（可为空，如果为空则使用默认仓库1）
+     * @param shelfId 货架ID（可为空，如果为空则自动分配）
+     * @param shelfLayer 货架层数（可为空，如果为空则自动分配）
      * @return 核验结果信息
      */
     @Transactional
-    public Map<String, Object> verificationAndTransferPackage(Long tempPackageId, Long employeeId, Long warehouseId, Long shelfId) {
+    public Map<String, Object> verificationAndTransferPackage(Long tempPackageId, Long employeeId, Long warehouseId, Long shelfId, Integer shelfLayer) {
         // 1. 查询临时包裹
         Optional<PackageTemp> tempPackageOpt = packageTempRepository.findById(tempPackageId);
         if (!tempPackageOpt.isPresent()) {
@@ -219,6 +343,33 @@ public class PackageService {
         }
 
         PackageTemp tempPackage = tempPackageOpt.get();
+
+        // 2. 设置仓库、货架和层数
+        if (warehouseId == null) {
+            warehouseId = 1L; // 默认仓库
+        }
+        
+        // 如果未指定货架ID，则自动分配
+        if (shelfId == null) {
+            Map<String, Object> allocation = allocateShelfAndLayer(
+                tempPackage.getSize(), 
+                tempPackage.getWeight(), 
+                warehouseId
+            );
+            shelfId = ((Number) allocation.get("shelfId")).longValue();
+            // 如果自动分配了货架但未指定层数，自动选择层数
+            if (shelfLayer == null) {
+                shelfLayer = (Integer) allocation.get("shelfLayer");
+            }
+        } else {
+            // 如果指定了货架但没有指定层数，自动选择层数
+            if (shelfLayer == null) {
+                shelfLayer = findAvailableLayer(shelfId, warehouseId, 
+                    shelfId == 4L ? 5 : 10); // 货架4每层5容量，其他每层10容量
+            }
+        }
+
+        String pickupCode = generatePickupCode(shelfId, shelfLayer);
 
         // 3. 更新核验状态为成功
         tempPackage.setVerificationSuccess(1);
@@ -246,6 +397,8 @@ public class PackageService {
         formalPackage.setStatus("已入库");
         formalPackage.setWarehouseId(warehouseId);
         formalPackage.setShelfId(shelfId);
+        formalPackage.setShelfLayer(shelfLayer);
+        formalPackage.setPickupCode(pickupCode);
         formalPackage.setEntryEmployeeId(employeeId);
         formalPackage.setEntryTime(java.time.LocalDateTime.now());
         formalPackage.setUserId(tempPackage.getUserId());
@@ -254,12 +407,13 @@ public class PackageService {
 
         Package savedPackage = packageRepository.save(formalPackage);
 
-        // 5. 创建入库记录到package_entry表
+        // 5. 创建入库记录到 package_entry 表
         PackageEntry entryRecord = new PackageEntry(
             savedPackage.getId(),
             employeeId,
             warehouseId,
             shelfId,
+            shelfLayer,
             "扫码录入",
             "核验成功后自动入库"
         );
@@ -275,6 +429,8 @@ public class PackageService {
         result.put("status", savedPackage.getStatus());
         result.put("warehouseId", warehouseId);
         result.put("shelfId", shelfId);
+        result.put("shelfLayer", shelfLayer);
+        result.put("pickupCode", pickupCode);
         result.put("entryTime", savedPackage.getEntryTime());
         result.put("message", "核验成功，包裹已入库");
 

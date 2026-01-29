@@ -228,21 +228,27 @@ public class PackageController {
                     employeeId = ((Number) request.get("employeeId")).longValue();
                 }
 
-                // 获取仓库ID（默认1）
-                Long warehouseId = 1L;
+                // 获取仓库ID（可为空；新入库包裹不再默认分配仓库/货架）
+                Long warehouseId = null;
                 if (request.get("warehouseId") != null) {
                     warehouseId = ((Number) request.get("warehouseId")).longValue();
                 }
 
-                // 获取货架ID（默认1）
-                Long shelfId = 1L;
+                // 获取货架ID（可为空）
+                Long shelfId = null;
                 if (request.get("shelfId") != null) {
                     shelfId = ((Number) request.get("shelfId")).longValue();
                 }
 
+                // 获取货架层数（可为空）
+                Integer shelfLayer = null;
+                if (request.get("shelfLayer") != null) {
+                    shelfLayer = ((Number) request.get("shelfLayer")).intValue();
+                }
+
                 // 执行核验成功后的转移逻辑
                 Map<String, Object> result = packageService.verificationAndTransferPackage(
-                    id, employeeId, warehouseId, shelfId
+                    id, employeeId, warehouseId, shelfId, shelfLayer
                 );
 
                 return ResponseEntity.ok(ApiResponse.success("核验成功，包裹已入库", result));

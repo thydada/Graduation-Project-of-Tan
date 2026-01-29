@@ -123,14 +123,48 @@
             </div>
           </div>
           <div class="form-group">
-            <label for="size" class="form-label">尺寸</label>
+            <label class="form-label">尺寸 (cm)</label>
+            <div class="size-inputs">
+              <div class="size-input-group">
+                <label for="length" class="size-label">长</label>
+                <input
+                  id="length"
+                  v-model.number="form.length"
+                  type="number"
+                  class="form-input size-input"
+                  placeholder="长度"
+                  step="0.1"
+                  min="0.1"
+                >
+                <span class="size-unit">cm</span>
+              </div>
+              <div class="size-input-group">
+                <label for="width" class="size-label">宽</label>
+                <input
+                  id="width"
+                  v-model.number="form.width"
+                  type="number"
+                  class="form-input size-input"
+                  placeholder="宽度"
+                  step="0.1"
+                  min="0.1"
+                >
+                <span class="size-unit">cm</span>
+              </div>
+              <div class="size-input-group">
+                <label for="height" class="size-label">高</label>
             <input
-              id="size"
-              v-model="form.size"
-              type="text"
-              class="form-input"
-              placeholder="例如：30x20x10cm"
+                  id="height"
+                  v-model.number="form.height"
+                  type="number"
+                  class="form-input size-input"
+                  placeholder="高度"
+                  step="0.1"
+                  min="0.1"
             >
+                <span class="size-unit">cm</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -188,7 +222,9 @@ export default {
       receiverAddress: '',
       packageType: '',
       weight: null,
-      size: ''
+      length: null,
+      width: null,
+      height: null
     })
 
     const resetForm = () => {
@@ -220,8 +256,22 @@ export default {
           throw new Error('用户未登录')
         }
 
+        // 组合尺寸信息：长x宽x高
+        let size = ''
+        if (form.length && form.width && form.height) {
+          size = `${form.length}x${form.width}x${form.height}`
+        }
+
         const requestData = {
-          ...form,
+          senderName: form.senderName,
+          senderPhone: form.senderPhone,
+          senderAddress: form.senderAddress,
+          receiverName: form.receiverName,
+          receiverPhone: form.receiverPhone,
+          receiverAddress: form.receiverAddress,
+          packageType: form.packageType,
+          weight: form.weight,
+          size: size,
           userId: user.id
         }
 
@@ -505,6 +555,35 @@ export default {
   box-shadow: 0 4px 8px rgba(220, 20, 60, 0.3);
 }
 
+.size-inputs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.size-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.size-label {
+  color: #333333;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 0;
+}
+
+.size-input {
+  width: 100%;
+}
+
+.size-unit {
+  color: #666666;
+  font-size: 14px;
+  text-align: center;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .form-card {
@@ -518,6 +597,11 @@ export default {
   .form-row {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+
+  .size-inputs {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .form-actions {

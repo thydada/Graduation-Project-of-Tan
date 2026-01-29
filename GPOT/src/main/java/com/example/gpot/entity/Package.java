@@ -55,8 +55,14 @@ public class Package {
     @Column
     private Long warehouseId;
 
-    @Column
+    @Column(name = "shelf_id")
     private Long shelfId;
+
+    @Column(name = "shelf_layer")
+    private Integer shelfLayer;
+
+    @Column(name = "pickup_code", length = 50)
+    private String pickupCode;
 
     @Column
     private Long entryEmployeeId;

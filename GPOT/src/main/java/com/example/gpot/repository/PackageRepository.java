@@ -25,4 +25,11 @@ public interface PackageRepository extends JpaRepository<Package, Long> {
      * 根据派送员工ID和状态查询包裹列表
      */
     List<Package> findByDeliveryEmployeeIdAndStatusOrderByCreateTimeDesc(Long deliveryEmployeeId, String status);
+
+    /**
+     * 根据货架ID和层数查询包裹数量
+     */
+    long countByShelfIdAndShelfLayerAndStatusNot(Long shelfId, Integer shelfLayer, String status);
+
+    boolean existsByPickupCode(String pickupCode);
 }

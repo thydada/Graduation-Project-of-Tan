@@ -74,13 +74,19 @@ const apiService = {
   },
 
   // 核验快递
-  async verificationPackage(id, status, employeeId = 1, warehouseId = 1, shelfId = 1) {
-    return api.put(`/packages/temp/${id}/verification`, {
+  async verificationPackage(id, status, employeeId = 1, warehouseId = 1, shelfId = null, shelfLayer = null) {
+    const requestData = {
       status,
       employeeId,
-      warehouseId,
-      shelfId
-    })
+      warehouseId
+    }
+    if (shelfId !== null) {
+      requestData.shelfId = shelfId
+    }
+    if (shelfLayer !== null) {
+      requestData.shelfLayer = shelfLayer
+    }
+    return api.put(`/packages/temp/${id}/verification`, requestData)
   },
 
   // 报告异常件

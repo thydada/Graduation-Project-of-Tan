@@ -86,7 +86,7 @@ export default {
       } else if (dept === 'B') {
         baseItems.push({
           name: 'EmployeePackage',
-          title: '快递审核情况',
+          title: '快递入库',
           path: '/employee/package',
           icon: '件'
         })

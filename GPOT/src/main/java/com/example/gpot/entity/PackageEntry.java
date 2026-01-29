@@ -27,8 +27,11 @@ public class PackageEntry {
     @Column(nullable = false, comment = "仓库ID")
     private Long warehouseId;
 
-    @Column(nullable = false, comment = "货架ID")
+    @Column(nullable = false, name = "shelf_id", comment = "货架ID")
     private Long shelfId;
+
+    @Column(name = "shelf_layer", comment = "货架层数(1-4)")
+    private Integer shelfLayer;
 
     @Column(length = 20, comment = "入库方式(扫码录入,自动分拣)")
     private String entryMethod;
@@ -49,6 +52,20 @@ public class PackageEntry {
         this.employeeId = employeeId;
         this.warehouseId = warehouseId;
         this.shelfId = shelfId;
+        this.entryMethod = entryMethod;
+        this.remarks = remarks;
+        this.entryTime = LocalDateTime.now();
+        this.createTime = LocalDateTime.now();
+    }
+
+    // 带层数的构造函数
+    public PackageEntry(Long packageId, Long employeeId, Long warehouseId, Long shelfId,
+                        Integer shelfLayer, String entryMethod, String remarks) {
+        this.packageId = packageId;
+        this.employeeId = employeeId;
+        this.warehouseId = warehouseId;
+        this.shelfId = shelfId;
+        this.shelfLayer = shelfLayer;
         this.entryMethod = entryMethod;
         this.remarks = remarks;
         this.entryTime = LocalDateTime.now();
