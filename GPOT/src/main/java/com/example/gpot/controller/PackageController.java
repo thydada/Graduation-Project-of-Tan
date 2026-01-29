@@ -381,6 +381,20 @@ public class PackageController {
     }
 
     /**
+     * 获取所有包裹列表（员工B查看全部）
+     */
+    @GetMapping("/packages/all")
+    public ResponseEntity<ApiResponse<List<Package>>> getAllPackages() {
+        try {
+            List<Package> packages = packageService.getAllPackages();
+            return ResponseEntity.ok(ApiResponse.success("查询成功", packages));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
      * 出库操作（员工B）
      */
     @PostMapping("/packages/{packageId}/outbound")

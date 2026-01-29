@@ -467,6 +467,13 @@ public class PackageService {
     }
 
     /**
+     * 获取所有包裹列表
+     */
+    public List<Package> getAllPackages() {
+        return packageRepository.findAll();
+    }
+
+    /**
      * 出库操作：将包裹状态改为运输中，创建出库记录，随机分配给员工A
      */
     @Transactional

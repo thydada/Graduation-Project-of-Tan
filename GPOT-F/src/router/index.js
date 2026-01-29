@@ -11,6 +11,7 @@ import EmployeeLayout from '../views/EmployeeLayout.vue'
 import EmployeeProfileView from '../views/EmployeeProfileView.vue'
 import EmployeePackageView from '../views/EmployeePackageView.vue'
 import EmployeeExceptionView from '../views/EmployeeExceptionView.vue'
+import EmployeeAllPackagesView from '../views/EmployeeAllPackagesView.vue'
 import EmployeeOutboundView from '../views/EmployeeOutboundView.vue'
 import EmployeeDeliveryView from '../views/EmployeeDeliveryView.vue'
 
@@ -78,6 +79,11 @@ const routes = [
         path: 'exception',
         name: 'EmployeeException',
         component: EmployeeExceptionView
+      },
+      {
+        path: 'all-packages',
+        name: 'EmployeeAllPackages',
+        component: EmployeeAllPackagesView
       },
       {
         path: 'outbound',

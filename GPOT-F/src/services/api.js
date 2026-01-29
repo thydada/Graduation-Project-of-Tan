@@ -115,6 +115,11 @@ const apiService = {
     return api.get('/packages/in-stock')
   },
 
+  // 获取所有包裹列表（员工B查看）
+  async getAllPackages() {
+    return api.get('/packages/all')
+  },
+
   // 出库操作（员工B）
   async outboundPackage(packageId, employeeId) {
     return api.post(`/packages/${packageId}/outbound`, { employeeId })

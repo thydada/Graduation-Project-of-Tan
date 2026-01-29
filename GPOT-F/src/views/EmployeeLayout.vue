@@ -106,6 +106,15 @@ export default {
         icon: '警'
       })
 
+      if (dept === 'B') {
+        baseItems.push({
+          name: 'EmployeeAllPackages',
+          title: '全部包裹',
+          path: '/employee/all-packages',
+          icon: '表'
+        })
+      }
+
       return baseItems
     })
 
