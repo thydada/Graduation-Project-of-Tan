@@ -1,7 +1,10 @@
 <template>
   <div class="login-container">
     <div class="login-card">
-      <h1 class="title">GPOT 快递管理系统</h1>
+      <div class="title-bar">
+        <h1 class="title">GPOT 快递管理系统</h1>
+        <button class="debug-link" @click="goDebug">Debug</button>
+      </div>
 
       <!-- 用户类型选择 -->
       <div class="user-type-selector">
@@ -169,7 +172,8 @@ export default {
             username: response.data.data.username,
             realName: response.data.data.realName,
             userType: response.data.data.userType,
-            department: userInfoData ? userInfoData.department : null
+            // 员工不再区分A/B：统一按B处理，避免前端出现A分支
+            department: selectedUserType.value === 'employee' ? 'B' : (userInfoData ? userInfoData.department : null)
           }
           localStorage.setItem('user', JSON.stringify(userInfo))
 
@@ -180,8 +184,8 @@ export default {
           } else if (selectedUserType.value === 'admin') {
             router.push('/welcome')
           } else {
-            // 普通用户跳转到寄件页面
-            router.push('/main/send-package')
+            // 普通用户跳转到“我的包裹”
+            router.push('/main/packages')
           }
         } else {
           errorMessage.value = response.data.message
@@ -240,6 +244,10 @@ export default {
       // 不允许点击遮罩关闭弹窗，必须点击按钮
     }
 
+    const goDebug = () => {
+      router.push('/debug')
+    }
+
     return {
       selectedUserType,
       isRegisterMode,
@@ -253,7 +261,8 @@ export default {
       handleRegister,
       handleBackToLogin,
       closeModal,
-      getLoginTitle
+      getLoginTitle,
+      goDebug
     }
   }
 }
@@ -279,15 +288,35 @@ export default {
   border: 3px solid #DC143C;
 }
 
+.title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
 .title {
-  text-align: center;
   color: #333333;
-  margin-bottom: 36px;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: 1px;
   border-bottom: 3px solid #DC143C;
-  padding-bottom: 16px;
+  padding-bottom: 8px;
+}
+
+.debug-link {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  cursor: pointer;
+  color: #666;
+}
+
+.debug-link:hover {
+  border-color: #DC143C;
+  color: #DC143C;
 }
 
 .user-type-selector {

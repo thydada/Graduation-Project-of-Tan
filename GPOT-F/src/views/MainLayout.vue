@@ -55,12 +55,6 @@ export default {
 
     const menuItems = [
       {
-        name: 'SendPackage',
-        title: '我要寄件',
-        path: '/main/send-package',
-        icon: '寄'
-      },
-      {
         name: 'UserPackages',
         title: '我的包裹',
         path: '/main/packages',

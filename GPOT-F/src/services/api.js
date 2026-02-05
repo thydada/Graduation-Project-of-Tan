@@ -43,11 +43,6 @@ const apiService = {
     return api.post('/register', registerData)
   },
 
-  // 寄件
-  async sendPackage(packageData) {
-    return api.post('/send-package', packageData)
-  },
-
   // 获取用户包裹列表
   async getUserPackages(userId) {
     return api.get(`/packages/user/${userId}`)
@@ -56,16 +51,6 @@ const apiService = {
   // 根据快递单号查询包裹
   async getPackageByTrackingNumber(trackingNumber) {
     return api.get(`/packages/tracking/${trackingNumber}`)
-  },
-
-  // 查询待取件的临时快递
-  async getPendingPackages() {
-    return api.get('/packages/temp/pending')
-  },
-
-  // 审核快递取件情况
-  async verifyPackage(id, status) {
-    return api.put(`/packages/temp/${id}/verify`, { status })
   },
 
   // 查询待核验的临时快递
@@ -90,7 +75,7 @@ const apiService = {
   },
 
   // 报告异常件
-  async reportException(tempPackageId, exceptionType, exceptionReason, employeeId = 1, source) {
+  async reportException(tempPackageId, exceptionType, exceptionReason, employeeId = 1, source = 'verification') {
     return api.post('/packages/temp/report-exception', {
       tempPackageId,
       exceptionType,
@@ -120,6 +105,16 @@ const apiService = {
     return api.get('/packages/all')
   },
 
+  // 获取待入库的正式包裹列表（package 表）
+  async getPendingInboundPackages() {
+    return api.get('/packages/pending-inbound')
+  },
+
+  // Debug：直接创建正式包裹
+  async debugCreatePackage(data) {
+    return api.post('/debug/packages', data)
+  },
+
   // 出库操作（员工B）
   async outboundPackage(packageId, employeeId) {
     return api.post(`/packages/${packageId}/outbound`, { employeeId })
@@ -133,6 +128,21 @@ const apiService = {
   // 送达操作（员工A）
   async deliverPackage(packageId, employeeId) {
     return api.post(`/packages/${packageId}/deliver`, { employeeId })
+  },
+
+  // 正式包裹入库操作（从待入库 -> 已入库）
+  async inboundFormalPackage(packageId, employeeId, warehouseId, shelfId = null, shelfLayer = null) {
+    const requestData = {
+      employeeId,
+      warehouseId
+    }
+    if (shelfId !== null) {
+      requestData.shelfId = shelfId
+    }
+    if (shelfLayer !== null) {
+      requestData.shelfLayer = shelfLayer
+    }
+    return api.put(`/packages/${packageId}/inbound`, requestData)
   }
 }
 

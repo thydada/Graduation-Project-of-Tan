@@ -1,7 +1,6 @@
 package com.example.gpot.service;
 
-import com.example.gpot.dto.SendPackageRequest;
-import com.example.gpot.dto.SendPackageResponse;
+import com.example.gpot.dto.DebugCreatePackageRequest;
 import com.example.gpot.entity.Employee;
 import com.example.gpot.entity.ExceptionPackage;
 import com.example.gpot.entity.Package;
@@ -70,60 +69,7 @@ public class PackageService {
         return exceptionPackageRepository.findAllByOrderByReportTimeDesc();
     }
 
-    /**
-     * 创建寄件包裹 - 先保存到临时表
-     */
-    public SendPackageResponse sendPackage(SendPackageRequest request) {
-        try {
-            // 生成唯一的快递单号
-            String trackingNumber = generateTrackingNumber();
-
-            // 创建临时包裹实体
-            PackageTemp tempPackage = new PackageTemp(
-                trackingNumber,
-                request.getSenderName(),
-                request.getSenderPhone(),
-                request.getSenderAddress(),
-                request.getReceiverName(),
-                request.getReceiverPhone(),
-                request.getReceiverAddress(),
-                request.getPackageType(),
-                request.getWeight(),
-                request.getSize(),
-                request.getUserId()
-            );
-
-            // 保存到临时表
-            PackageTemp savedTempPackage = packageTempRepository.save(tempPackage);
-
-            // 返回响应
-            return new SendPackageResponse(
-                savedTempPackage.getId(),
-                savedTempPackage.getTrackingNumber(),
-                savedTempPackage.getStatus(),
-                savedTempPackage.getCreateTime(),
-                "寄件成功！包裹已提交，等待取件和核验。"
-            );
-
-        } catch (Exception e) {
-            throw new RuntimeException("寄件失败：" + e.getMessage());
-        }
-    }
-
-    /**
-     * 生成唯一的快递单号 - 检查临时表和正式表
-     */
-    private String generateTrackingNumber() {
-        String trackingNumber;
-        do {
-            // 生成格式：GPOT + 时间戳 + 随机数
-            trackingNumber = "GPOT" + System.currentTimeMillis() +
-                           String.format("%03d", (int)(Math.random() * 1000));
-        } while (packageRepository.findByTrackingNumber(trackingNumber).isPresent() ||
-                 packageTempRepository.findByTrackingNumber(trackingNumber).isPresent());
-
-        return trackingNumber;
-    }
+    // ======================== 用户/包裹查询 ========================
 
     /**
      * 根据用户ID查询包裹列表
@@ -153,8 +99,10 @@ public class PackageService {
         return packageTempRepository.findByTrackingNumber(trackingNumber);
     }
 
+    // ======================== 临时包裹转正式包裹 ========================
+
     /**
-     * 将临时包裹转移到正式表（取件和核验都成功后调用）
+     * 将临时包裹转移到正式表（当前仅依赖核验成功）
      */
     public Package transferTempPackageToFormal(Long tempPackageId) {
         Optional<PackageTemp> tempPackageOpt = packageTempRepository.findById(tempPackageId);
@@ -164,9 +112,9 @@ public class PackageService {
 
         PackageTemp tempPackage = tempPackageOpt.get();
 
-        // 检查是否满足转移条件
-        if (tempPackage.getPickupSuccess() != 1 || tempPackage.getVerificationSuccess() != 1) {
-            throw new RuntimeException("包裹未完成取件或核验，无法转移到正式表");
+        // 入库流程改为仅一次核验：只检查核验状态
+        if (tempPackage.getVerificationSuccess() != 1) {
+            throw new RuntimeException("包裹未完成核验，无法转移到正式表");
         }
 
         // 创建正式包裹
@@ -221,6 +169,8 @@ public class PackageService {
             packageTempRepository.save(tempPackage);
         }
     }
+
+    // ======================== 货架分配相关 ========================
 
     /**
      * 根据包裹大小自动分配货架和层数
@@ -325,6 +275,8 @@ public class PackageService {
         return bestLayer;
     }
 
+    // ======================== 入库核验 ========================
+
     /**
      * 核验成功后转移包裹到正式表并创建入库记录
      * @param tempPackageId 临时包裹ID
@@ -371,16 +323,10 @@ public class PackageService {
 
         String pickupCode = generatePickupCode(shelfId, shelfLayer);
 
-        // 3. 更新核验状态为成功
+        // 3. 更新核验状态为成功（入库流程仅一次核验）
         tempPackage.setVerificationSuccess(1);
-        // 更新status字段
-        if (tempPackage.getPickupSuccess() == 1) {
-            tempPackage.setStatus("审核完成");
-        } else {
-            tempPackage.setStatus("待取件");
-        }
+        tempPackage.setStatus("审核完成");
         tempPackage.setUpdateTime(java.time.LocalDateTime.now());
-        packageTempRepository.save(tempPackage);
 
         // 4. 创建正式包裹并保存到package表
         Package formalPackage = new Package();
@@ -437,6 +383,8 @@ public class PackageService {
         return result;
     }
 
+    // ======================== 用户包裹总览 ========================
+
     /**
      * 获取用户的所有包裹信息（临时包裹、正式包裹、异常包裹）
      */
@@ -459,8 +407,10 @@ public class PackageService {
         return result;
     }
 
+    // ======================== 员工端操作：出库/运输 ========================
+
     /**
-     * 获取已入库的包裹列表（供员工B出库使用）
+     * 获取已入库的包裹列表（供员工出库使用）
      */
     public List<Package> getInStockPackages() {
         return packageRepository.findByStatusOrderByCreateTimeDesc("已入库");
@@ -474,7 +424,14 @@ public class PackageService {
     }
 
     /**
-     * 出库操作：将包裹状态改为运输中，创建出库记录，随机分配给员工A
+     * 获取所有待入库的正式包裹列表（供员工在入库页面操作）
+     */
+    public List<Package> getPendingFormalPackages() {
+        return packageRepository.findByStatusOrderByCreateTimeDesc("待入库");
+    }
+
+    /**
+     * 出库操作：将包裹状态改为运输中，创建出库记录，随机分配派送员工
      */
     @Transactional
     public Map<String, Object> outboundPackage(Long packageId, Long outboundEmployeeId) {
@@ -491,14 +448,12 @@ public class PackageService {
             throw new RuntimeException("只有已入库的包裹才能出库");
         }
 
-        // 3. 随机选择一个部门A的员工
-        List<Employee> departmentAEmployees = employeeRepository.findByDepartment("A");
-        if (departmentAEmployees.isEmpty()) {
-            throw new RuntimeException("没有可用的派送员工（部门A）");
+        // 3. 员工不再区分部门A/B：随机选择任意员工作为派送员工
+        List<Employee> allEmployees = employeeRepository.findAll();
+        if (allEmployees.isEmpty()) {
+            throw new RuntimeException("没有可用的派送员工");
         }
-
-        // 随机选择
-        Employee deliveryEmployee = departmentAEmployees.get((int)(Math.random() * departmentAEmployees.size()));
+        Employee deliveryEmployee = allEmployees.get((int)(Math.random() * allEmployees.size()));
 
         // 4. 更新包裹状态和派送员工
         pkg.setStatus("运输中");
@@ -528,7 +483,7 @@ public class PackageService {
     }
 
     /**
-     * 获取分配给指定员工的运输中包裹列表（供员工A使用）
+     * 获取分配给指定员工的运输中包裹列表
      */
     public List<Package> getTransportingPackagesByEmployee(Long employeeId) {
         return packageRepository.findByDeliveryEmployeeIdAndStatusOrderByCreateTimeDesc(employeeId, "运输中");
@@ -568,5 +523,122 @@ public class PackageService {
         result.put("status", pkg.getStatus());
 
         return result;
+    }
+
+    /**
+     * 员工对正式包裹执行入库操作（从待入库 -> 已入库）
+     */
+    @Transactional
+    public Map<String, Object> inboundFormalPackage(Long packageId, Long employeeId, Long warehouseId,
+                                                    Long shelfId, Integer shelfLayer) {
+        Optional<Package> packageOpt = packageRepository.findById(packageId);
+        if (!packageOpt.isPresent()) {
+            throw new RuntimeException("包裹不存在");
+        }
+
+        Package pkg = packageOpt.get();
+        if (!"待入库".equals(pkg.getStatus())) {
+            throw new RuntimeException("只有待入库状态的包裹才能执行入库操作");
+        }
+
+        if (warehouseId == null) {
+            warehouseId = 1L;
+        }
+
+        // 自动/手动分配货架与层数
+        if (shelfId == null) {
+            Map<String, Object> allocation = allocateShelfAndLayer(
+                    pkg.getSize(),
+                    pkg.getWeight(),
+                    warehouseId
+            );
+            shelfId = ((Number) allocation.get("shelfId")).longValue();
+            if (shelfLayer == null) {
+                shelfLayer = (Integer) allocation.get("shelfLayer");
+            }
+        } else {
+            if (shelfLayer == null) {
+                shelfLayer = findAvailableLayer(
+                        shelfId,
+                        warehouseId,
+                        shelfId == 4L ? 5 : 10
+                );
+            }
+        }
+
+        String pickupCode = generatePickupCode(shelfId, shelfLayer);
+
+        // 更新正式包裹信息
+        pkg.setStatus("已入库");
+        pkg.setWarehouseId(warehouseId);
+        pkg.setShelfId(shelfId);
+        pkg.setShelfLayer(shelfLayer);
+        pkg.setPickupCode(pickupCode);
+        pkg.setEntryEmployeeId(employeeId);
+        pkg.setEntryTime(java.time.LocalDateTime.now());
+        pkg.setUpdateTime(java.time.LocalDateTime.now());
+        Package savedPackage = packageRepository.save(pkg);
+
+        // 记录入库流水
+        PackageEntry entryRecord = new PackageEntry(
+                savedPackage.getId(),
+                employeeId,
+                warehouseId,
+                shelfId,
+                shelfLayer,
+                "扫码录入",
+                "正式包裹入库（待入库 -> 已入库）"
+        );
+        packageEntryRepository.save(entryRecord);
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("packageId", savedPackage.getId());
+        result.put("trackingNumber", savedPackage.getTrackingNumber());
+        result.put("status", savedPackage.getStatus());
+        result.put("warehouseId", warehouseId);
+        result.put("shelfId", shelfId);
+        result.put("shelfLayer", shelfLayer);
+        result.put("pickupCode", pickupCode);
+        result.put("entryTime", savedPackage.getEntryTime());
+        result.put("message", "包裹已入库");
+        return result;
+    }
+
+    // ======================== Debug 调试：直接创建正式包裹 ========================
+
+    /**
+     * 生成唯一的快递单号 - 检查正式表
+     */
+    private String generateDebugTrackingNumber() {
+        String trackingNumber;
+        do {
+            trackingNumber = "DBG" + System.currentTimeMillis() +
+                    String.format("%03d", (int) (Math.random() * 1000));
+        } while (packageRepository.findByTrackingNumber(trackingNumber).isPresent());
+        return trackingNumber;
+    }
+
+    /**
+     * Debug 调试：直接往 package 表写入一条包裹记录
+     */
+    public Package debugCreatePackage(DebugCreatePackageRequest request) {
+        Package pkg = new Package();
+        pkg.setTrackingNumber(generateDebugTrackingNumber());
+        pkg.setSenderName(request.getSenderName());
+        pkg.setSenderPhone(request.getSenderPhone());
+        pkg.setSenderAddress(request.getSenderAddress());
+        pkg.setReceiverName(request.getReceiverName());
+        pkg.setReceiverPhone(request.getReceiverPhone());
+        pkg.setReceiverAddress(request.getReceiverAddress());
+        pkg.setPackageType(request.getPackageType());
+        pkg.setWeight(request.getWeight());
+        pkg.setSize(request.getSize());
+        pkg.setUserId(request.getUserId());
+        pkg.setStatus(request.getStatus() == null || request.getStatus().trim().isEmpty()
+                ? "待入库"
+                : request.getStatus().trim());
+        pkg.setCreateTime(java.time.LocalDateTime.now());
+        pkg.setUpdateTime(java.time.LocalDateTime.now());
+        return packageRepository.save(pkg);
     }
 }

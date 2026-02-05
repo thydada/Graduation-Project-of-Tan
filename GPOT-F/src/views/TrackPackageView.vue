@@ -83,7 +83,7 @@
         <div v-else-if="allPackages.length === 0" class="empty-container">
           <div class="empty-icon">📭</div>
           <p class="empty-text">暂无寄件包裹记录</p>
-          <button class="btn-primary" @click="$router.push('/main/send-package')">去寄件</button>
+          <button class="btn-primary" @click="$router.push('/main/packages')">查看我的包裹</button>
         </div>
         <div v-else class="package-cards">
           <div

@@ -1,9 +1,8 @@
 package com.example.gpot.controller;
 
 import com.example.gpot.dto.ApiResponse;
+import com.example.gpot.dto.DebugCreatePackageRequest;
 import com.example.gpot.dto.ExceptionReportRequest;
-import com.example.gpot.dto.SendPackageRequest;
-import com.example.gpot.dto.SendPackageResponse;
 import com.example.gpot.entity.ExceptionPackage;
 import com.example.gpot.entity.Package;
 import com.example.gpot.entity.PackageTemp;
@@ -34,60 +33,6 @@ public class PackageController {
     private ExceptionPackageRepository exceptionPackageRepository;
 
     /**
-     * 用户寄件接口
-     */
-    @PostMapping("/send-package")
-    public ResponseEntity<ApiResponse<SendPackageResponse>> sendPackage(@RequestBody SendPackageRequest request) {
-        try {
-            // 验证输入
-            if (request.getSenderName() == null || request.getSenderName().trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("寄件人姓名不能为空"));
-            }
-            if (request.getSenderPhone() == null || request.getSenderPhone().trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("寄件人电话不能为空"));
-            }
-            if (request.getSenderAddress() == null || request.getSenderAddress().trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("寄件人地址不能为空"));
-            }
-            if (request.getReceiverName() == null || request.getReceiverName().trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("收件人姓名不能为空"));
-            }
-            if (request.getReceiverPhone() == null || request.getReceiverPhone().trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("收件人电话不能为空"));
-            }
-            if (request.getReceiverAddress() == null || request.getReceiverAddress().trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("收件人地址不能为空"));
-            }
-            if (request.getPackageType() == null || request.getPackageType().trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("包裹类型不能为空"));
-            }
-            if (request.getWeight() == null || request.getWeight().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("包裹重量必须大于0"));
-            }
-            if (request.getUserId() == null) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("用户ID不能为空"));
-            }
-
-            // 调用服务创建包裹
-            SendPackageResponse response = packageService.sendPackage(request);
-            return ResponseEntity.ok(ApiResponse.success("寄件成功", response));
-
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(ApiResponse.error("寄件过程中发生错误：" + e.getMessage()));
-        }
-    }
-
-    /**
      * 根据用户ID查询包裹列表
      */
     @GetMapping("/packages/user/{userId}")
@@ -116,71 +61,6 @@ public class PackageController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                 .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
-        }
-    }
-
-    /**
-     * 查询所有待取件的临时快递（pickup_success=0）
-     */
-    @GetMapping("/packages/temp/pending")
-    public ResponseEntity<ApiResponse<List<PackageTemp>>> getPendingPackages() {
-        try {
-            List<PackageTemp> packages = packageTempRepository.findByPickupSuccess(0);
-            return ResponseEntity.ok(ApiResponse.success("查询成功", packages));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
-        }
-    }
-
-    /**
-     * 审核快递取件情况
-     * @param id 快递ID
-     * @param status 审核状态：1-已取件，2-取件出错
-     */
-    @PutMapping("/packages/temp/{id}/verify")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyPackage(
-            @PathVariable Long id,
-            @RequestBody Map<String, Integer> request) {
-        try {
-            Integer status = request.get("status");
-            if (status == null || (status != 1 && status != 2)) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("审核状态无效，必须为1（已取件）或2（取件出错）"));
-            }
-
-            Optional<PackageTemp> optionalPackage = packageTempRepository.findById(id);
-            if (!optionalPackage.isPresent()) {
-                return ResponseEntity.notFound().build();
-            }
-
-            PackageTemp pkg = optionalPackage.get();
-            pkg.setPickupSuccess(status);
-            // 更新status字段以反映审核状态
-            if (status == 1) {
-                // 已取件，检查核验状态
-                if (pkg.getVerificationSuccess() == 1) {
-                    pkg.setStatus("审核完成");
-                } else {
-                    pkg.setStatus("待核验");
-                }
-            } else {
-                pkg.setStatus("取件异常");
-            }
-            pkg.setUpdateTime(LocalDateTime.now());
-            packageTempRepository.save(pkg);
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("id", pkg.getId());
-            result.put("trackingNumber", pkg.getTrackingNumber());
-            result.put("pickupSuccess", pkg.getPickupSuccess());
-
-            String message = status == 1 ? "已标记为已取件" : "已标记为取件出错";
-            return ResponseEntity.ok(ApiResponse.success(message, result));
-
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(ApiResponse.error("审核过程中发生错误：" + e.getMessage()));
         }
     }
 
@@ -290,9 +170,10 @@ public class PackageController {
                 return ResponseEntity.badRequest()
                     .body(ApiResponse.error("异常类型不能为空"));
             }
-            if (request.getSource() == null || (!"pickup".equals(request.getSource()) && !"verification".equals(request.getSource()))) {
+            // 入库流程改为仅一次核验：只允许 verification 来源
+            if (request.getSource() == null || !"verification".equals(request.getSource())) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("异常来源无效，必须为 pickup 或 verification"));
+                    .body(ApiResponse.error("异常来源无效，必须为 verification"));
             }
 
             // 查询临时包裹
@@ -329,12 +210,43 @@ public class PackageController {
             result.put("exceptionType", exceptionPkg.getExceptionType());
             result.put("handleStatus", exceptionPkg.getHandleStatus());
 
-            String sourceText = "pickup".equals(request.getSource()) ? "取件" : "核验";
-            return ResponseEntity.ok(ApiResponse.success("已记录为" + sourceText + "异常件", result));
+            return ResponseEntity.ok(ApiResponse.success("已记录为核验异常件", result));
 
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                 .body(ApiResponse.error("报告异常件过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * Debug：直接往正式包裹表写入一条包裹记录
+     * 仅供开发调试使用
+     */
+    @PostMapping("/debug/packages")
+    public ResponseEntity<ApiResponse<Package>> debugCreatePackage(@RequestBody DebugCreatePackageRequest request) {
+        try {
+            // 简单必填校验（核心字段）
+            if (request.getSenderName() == null || request.getSenderName().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("寄件人姓名不能为空"));
+            }
+            if (request.getSenderPhone() == null || request.getSenderPhone().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("寄件人电话不能为空"));
+            }
+            if (request.getReceiverName() == null || request.getReceiverName().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("收件人姓名不能为空"));
+            }
+            if (request.getReceiverPhone() == null || request.getReceiverPhone().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("收件人电话不能为空"));
+            }
+            if (request.getPackageType() == null || request.getPackageType().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("包裹类型不能为空"));
+            }
+
+            Package pkg = packageService.debugCreatePackage(request);
+            return ResponseEntity.ok(ApiResponse.success("Debug 包裹创建成功", pkg));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Debug 创建包裹过程中发生错误：" + e.getMessage()));
         }
     }
 
@@ -381,6 +293,20 @@ public class PackageController {
     }
 
     /**
+     * 获取待入库的正式包裹列表（package 表中 status=待入库）
+     */
+    @GetMapping("/packages/pending-inbound")
+    public ResponseEntity<ApiResponse<List<Package>>> getPendingInboundPackages() {
+        try {
+            List<Package> packages = packageService.getPendingFormalPackages();
+            return ResponseEntity.ok(ApiResponse.success("查询成功", packages));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
      * 获取所有包裹列表（员工B查看全部）
      */
     @GetMapping("/packages/all")
@@ -413,6 +339,48 @@ public class PackageController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                 .body(ApiResponse.error("出库过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 正式包裹入库操作（从待入库 -> 已入库）
+     */
+    @PutMapping("/packages/{packageId}/inbound")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> inboundFormalPackage(
+            @PathVariable Long packageId,
+            @RequestBody Map<String, Object> request) {
+        try {
+            Long employeeId = null;
+            if (request.get("employeeId") != null) {
+                employeeId = ((Number) request.get("employeeId")).longValue();
+            }
+            if (employeeId == null) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("员工ID不能为空"));
+            }
+
+            Long warehouseId = null;
+            if (request.get("warehouseId") != null) {
+                warehouseId = ((Number) request.get("warehouseId")).longValue();
+            }
+
+            Long shelfId = null;
+            if (request.get("shelfId") != null) {
+                shelfId = ((Number) request.get("shelfId")).longValue();
+            }
+
+            Integer shelfLayer = null;
+            if (request.get("shelfLayer") != null) {
+                shelfLayer = ((Number) request.get("shelfLayer")).intValue();
+            }
+
+            Map<String, Object> result = packageService.inboundFormalPackage(
+                    packageId, employeeId, warehouseId, shelfId, shelfLayer
+            );
+            return ResponseEntity.ok(ApiResponse.success("入库成功", result));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("入库过程中发生错误：" + e.getMessage()));
         }
     }
 

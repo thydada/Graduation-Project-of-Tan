@@ -1,15 +1,14 @@
 package com.example.gpot.dto;
 
 import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 import java.math.BigDecimal;
 
+/**
+ * Debug 调试用：直接往正式包裹表(package)写入一条包裹记录
+ */
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class SendPackageRequest {
+public class DebugCreatePackageRequest {
 
     // 寄件人信息
     private String senderName;
@@ -26,6 +25,10 @@ public class SendPackageRequest {
     private BigDecimal weight;
     private String size;
 
-    // 用户ID (从token中获取)
+    // 关联用户（可选）
     private Long userId;
+
+    // 初始状态，可选：不填则默认"待入库"
+    private String status;
 }
+

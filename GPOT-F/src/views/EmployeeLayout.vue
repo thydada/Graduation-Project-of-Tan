@@ -8,16 +8,45 @@
       </div>
 
       <nav class="sidebar-nav">
-        <router-link
-          v-for="item in menuItems"
-          :key="item.name"
-          :to="item.path"
-          class="nav-item"
-          active-class="active"
-        >
-          <span class="nav-icon">{{ item.icon }}</span>
-          <span class="nav-text">{{ item.title }}</span>
-        </router-link>
+        <div v-for="item in menuItems" :key="item.name">
+          <!-- 有子菜单的父级（快递入库） -->
+          <div
+            v-if="item.children"
+            class="nav-item nav-group"
+            @click="toggleMenu(item.name)"
+          >
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span class="nav-text nav-group-title">
+              {{ item.title }}
+              <span class="nav-group-arrow">
+                {{ expandedMenus.includes(item.name) ? '▲' : '▼' }}
+              </span>
+            </span>
+          </div>
+
+          <div v-if="item.children && expandedMenus.includes(item.name)" class="sub-menu">
+            <router-link
+              v-for="child in item.children"
+              :key="child.name"
+              :to="child.path"
+              class="nav-item sub-menu-link"
+              active-class="active"
+            >
+              <span class="nav-text">{{ child.title }}</span>
+            </router-link>
+          </div>
+
+          <!-- 普通单层菜单 -->
+          <router-link
+            v-else
+            :to="item.path"
+            class="nav-item"
+            active-class="active"
+          >
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span class="nav-text">{{ item.title }}</span>
+          </router-link>
+        </div>
       </nav>
 
       <div class="sidebar-footer">
@@ -45,8 +74,8 @@
 </template>
 
 <script>
-import { useRouter } from 'vue-router'
-import { ref, onMounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ref, onMounted, computed, watch } from 'vue'
 
 export default {
   name: 'EmployeeLayout',
@@ -55,67 +84,65 @@ export default {
     const userName = ref('')
     const department = ref('')
 
-    // 根据部门显示不同的菜单项
+    // 员工不再区分部门A/B：统一使用同一套工作台菜单
+    // “快递入库”作为父菜单，下面有“扫码入库”和“手动入库”两个子项
     const menuItems = computed(() => {
-      const user = JSON.parse(localStorage.getItem('user') || '{}')
-      const dept = user.department || ''
-      
-      const baseItems = [
+      return [
         {
           name: 'EmployeeProfile',
           title: '个人信息管理',
           path: '/employee/profile',
           icon: '人'
-        }
-      ]
-
-      // 根据部门添加不同的快递管理菜单
-      if (dept === 'A') {
-        baseItems.push({
-          name: 'EmployeePackage',
-          title: '快递取得情况',
-          path: '/employee/package',
-          icon: '件'
-        })
-        baseItems.push({
-          name: 'EmployeeDelivery',
-          title: '快递运送',
-          path: '/employee/delivery',
-          icon: '送'
-        })
-      } else if (dept === 'B') {
-        baseItems.push({
-          name: 'EmployeePackage',
+        },
+        {
+          name: 'EmployeePackageGroup',
           title: '快递入库',
-          path: '/employee/package',
-          icon: '件'
-        })
-        baseItems.push({
-          name: 'EmployeeOutbound',
-          title: '快递出库',
-          path: '/employee/outbound',
-          icon: '出'
-        })
-      }
-
-      // 添加异常件查询
-      baseItems.push({
-        name: 'EmployeeException',
-        title: '异常件查询',
-        path: '/employee/exception',
-        icon: '警'
-      })
-
-      if (dept === 'B') {
-        baseItems.push({
+          icon: '件',
+          children: [
+            {
+              name: 'EmployeePackageScan',
+              title: '扫码入库',
+              path: '/employee/package/scan'
+            },
+            {
+              name: 'EmployeePackageManual',
+              title: '手动入库',
+              path: '/employee/package/manual'
+            }
+          ]
+        },
+        {
+          name: 'EmployeeException',
+          title: '异常件查询',
+          path: '/employee/exception',
+          icon: '警'
+        },
+        {
           name: 'EmployeeAllPackages',
           title: '全部包裹',
           path: '/employee/all-packages',
           icon: '表'
-        })
-      }
+        }
+      ]
+    })
 
-      return baseItems
+    const expandedMenus = ref([])
+
+    const toggleMenu = (name) => {
+      if (expandedMenus.value.includes(name)) {
+        expandedMenus.value = expandedMenus.value.filter(n => n !== name)
+      } else {
+        expandedMenus.value.push(name)
+      }
+    }
+
+    // 监听路由变化，自动展开快递入库父菜单
+    const unwatch = router.afterEach((to) => {
+      if (to.name === 'EmployeePackageScan' || to.name === 'EmployeePackageManual') {
+        if (!expandedMenus.value.includes('EmployeePackageGroup')) {
+          expandedMenus.value.push('EmployeePackageGroup')
+        }
+      }
     })
 
     const handleLogout = () => {
@@ -128,14 +155,23 @@ export default {
       // 从localStorage获取用户信息
       const user = JSON.parse(localStorage.getItem('user') || '{}')
       userName.value = user.realName || user.username || '员工'
-      department.value = user.department || '未知'
+      // 员工不再区分A/B
+      department.value = 'B'
+
+      // 如果当前在快递入库的子页面，自动展开父菜单
+      const currentRoute = router.currentRoute.value.name
+      if (currentRoute === 'EmployeePackageScan' || currentRoute === 'EmployeePackageManual') {
+        expandedMenus.value = ['EmployeePackageGroup']
+      }
     })
 
     return {
       menuItems,
       userName,
       department,
-      handleLogout
+      handleLogout,
+      expandedMenus,
+      toggleMenu
     }
   }
 }
@@ -216,6 +252,31 @@ export default {
 .nav-text {
   font-size: 16px;
   font-weight: 500;
+}
+
+.nav-group {
+  cursor: pointer;
+}
+
+.nav-group-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-group-arrow {
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.sub-menu {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.sub-menu-link {
+  padding-left: 48px;
+  font-size: 14px;
 }
 
 .sidebar-footer {

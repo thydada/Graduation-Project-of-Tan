@@ -1,11 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import MainLayout from '../views/MainLayout.vue'
-import SendPackageView from '../views/SendPackageView.vue'
 import UserPackagesView from '../views/UserPackagesView.vue'
 import WelcomeView from '../views/WelcomeView.vue'
-import PageA from '../views/PageA.vue'
-import PageB from '../views/PageB.vue'
 import ExceptionView from '../views/ExceptionView.vue'
 import EmployeeLayout from '../views/EmployeeLayout.vue'
 import EmployeeProfileView from '../views/EmployeeProfileView.vue'
@@ -14,6 +11,7 @@ import EmployeeExceptionView from '../views/EmployeeExceptionView.vue'
 import EmployeeAllPackagesView from '../views/EmployeeAllPackagesView.vue'
 import EmployeeOutboundView from '../views/EmployeeOutboundView.vue'
 import EmployeeDeliveryView from '../views/EmployeeDeliveryView.vue'
+import DebugCreatePackageView from '../views/DebugCreatePackageView.vue'
 
 const routes = [
   {
@@ -22,16 +20,16 @@ const routes = [
     component: LoginView
   },
   {
+    path: '/debug',
+    name: 'DebugCreatePackage',
+    component: DebugCreatePackageView
+  },
+  {
     path: '/main',
     name: 'Main',
     component: MainLayout,
-    redirect: '/main/send-package',
+    redirect: '/main/packages',
     children: [
-      {
-        path: 'send-package',
-        name: 'SendPackage',
-        component: SendPackageView
-      },
       {
         path: 'packages',
         name: 'UserPackages',
@@ -43,16 +41,6 @@ const routes = [
     path: '/welcome',
     name: 'Welcome',
     component: WelcomeView
-  },
-  {
-    path: '/page-a',
-    name: 'PageA',
-    component: PageA
-  },
-  {
-    path: '/page-b',
-    name: 'PageB',
-    component: PageB
   },
   {
     path: '/exception',
@@ -71,8 +59,13 @@ const routes = [
         component: EmployeeProfileView
       },
       {
-        path: 'package',
-        name: 'EmployeePackage',
+        path: 'package/scan',
+        name: 'EmployeePackageScan',
+        component: EmployeePackageView
+      },
+      {
+        path: 'package/manual',
+        name: 'EmployeePackageManual',
         component: EmployeePackageView
       },
       {

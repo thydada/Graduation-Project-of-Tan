@@ -30,7 +30,7 @@ public class ExceptionReportRequest {
     private Long employeeId;
 
     /**
-     * 来源：pickup（取件异常）或 verification（核验异常）
+     * 来源：verification（核验异常）
      */
     private String source;
 }

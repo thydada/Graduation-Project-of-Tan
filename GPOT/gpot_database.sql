@@ -11,7 +11,7 @@
  Target Server Version : 80042
  File Encoding         : 65001
 
- Date: 29/01/2026 14:07:16
+ Date: 02/02/2026 16:13:17
 */
 
 SET NAMES utf8mb4;
@@ -36,7 +36,7 @@ CREATE TABLE `admin`  (
   UNIQUE INDEX `username`(`username`) USING BTREE,
   INDEX `warehouse_id`(`warehouse_id`) USING BTREE,
   CONSTRAINT `admin_ibfk_1` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '管理员表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '管理员表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of admin
@@ -63,7 +63,7 @@ CREATE TABLE `announcement`  (
   INDEX `warehouse_id`(`warehouse_id`) USING BTREE,
   CONSTRAINT `announcement_ibfk_1` FOREIGN KEY (`publisher_id`) REFERENCES `admin` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `announcement_ibfk_2` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '公告表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '公告表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for employee
@@ -86,7 +86,7 @@ CREATE TABLE `employee`  (
   UNIQUE INDEX `username`(`username`) USING BTREE,
   INDEX `warehouse_id`(`warehouse_id`) USING BTREE,
   CONSTRAINT `employee_ibfk_1` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '员工表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '员工表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of employee
@@ -128,13 +128,15 @@ CREATE TABLE `exception_package`  (
   CONSTRAINT `exception_package_ibfk_3` FOREIGN KEY (`handle_employee_id`) REFERENCES `employee` (`id`) ON DELETE SET NULL ON UPDATE SET NULL,
   CONSTRAINT `exception_package_ibfk_4` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `exception_package_ibfk_5` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '异常件表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '异常件表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of exception_package
 -- ----------------------------
 INSERT INTO `exception_package` VALUES (4, NULL, '收件人信息错误', 'd', 1, NULL, NULL, '待处理', NULL, '2026-01-29 03:30:36', NULL, '2026-01-29 03:30:36', '员工1', 'pickup', 'GPOT1769657223392285', 8, 1);
 INSERT INTO `exception_package` VALUES (5, NULL, '包裹信息不符', '123', 2, NULL, NULL, '待处理', NULL, '2026-01-29 03:30:53', NULL, '2026-01-29 03:30:53', '员工2', 'verification', 'GPOT1769657214797364', 7, 1);
+INSERT INTO `exception_package` VALUES (6, NULL, '收件人信息错误', 'ddddx1', 1, NULL, NULL, '待处理', NULL, '2026-01-30 04:58:40', NULL, '2026-01-30 04:58:40', '员工1', 'pickup', 'GPOT1769749027534032', 17, 5);
+INSERT INTO `exception_package` VALUES (7, NULL, '包裹破损', 'sssss', 2, NULL, NULL, '待处理', NULL, '2026-01-30 05:01:01', NULL, '2026-01-30 05:01:01', '员工2', 'verification', 'GPOT1769749021583696', 16, 5);
 
 -- ----------------------------
 -- Table structure for message
@@ -160,7 +162,7 @@ CREATE TABLE `message`  (
   CONSTRAINT `message_ibfk_1` FOREIGN KEY (`sender_id`) REFERENCES `admin` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `message_ibfk_2` FOREIGN KEY (`receiver_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `message_ibfk_3` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '消息表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '消息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for package
@@ -181,7 +183,8 @@ CREATE TABLE `package`  (
   `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT '待入库' COMMENT '状态(待入库、入库中、已入库、待取件、已取件、异常)',
   `warehouse_id` bigint(0) NULL DEFAULT NULL COMMENT '仓库ID',
   `shelf_id` bigint(0) NULL DEFAULT NULL COMMENT '货架ID',
-  `shelf_layer` varchar(0) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '货架层数(1-4)',
+  `shelf_layer` int(0) NULL DEFAULT NULL,
+  `pickup_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '取件码(货架号-层号-随机码)',
   `entry_employee_id` bigint(0) NULL DEFAULT NULL COMMENT '入库员工ID',
   `entry_time` datetime(0) NULL DEFAULT NULL COMMENT '入库时间',
   `user_id` bigint(0) NULL DEFAULT NULL COMMENT '所属用户ID',
@@ -203,18 +206,21 @@ CREATE TABLE `package`  (
   CONSTRAINT `package_ibfk_3` FOREIGN KEY (`entry_employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_ibfk_4` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_ibfk_5` FOREIGN KEY (`delivery_employee_id`) REFERENCES `employee` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '快递包裹表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 12 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '快递包裹表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of package
 -- ----------------------------
-INSERT INTO `package` VALUES (3, 'GPOT1768630138407132', '谭浩毅', '19826151596', '测试3', '韩立', '18862666020', '测试4', '食品', 2.00, '30x20x10', '已入库', 1, 1, NULL, 1, '2026-01-21 05:04:19', 1, NULL, NULL, '2026-01-21 05:04:19', NULL);
-INSERT INTO `package` VALUES (4, 'GPOT1769499626646342', '谭浩毅', '19826151596', 'aaa', '韩立', '18862666020', 'bbb', '食品', 2.00, '30x20x50', '待取件', 1, 1, NULL, 2, '2026-01-28 02:08:57', 4, NULL, 1, '2026-01-28 02:08:57', '2026-01-28 03:23:22');
-INSERT INTO `package` VALUES (5, 'GPOT1769657202822876', '谭浩毅', '19826151596', 'BBBD', '韩立', '18862666020', 'FGFF', '文件', 2.00, '30x20x50', '运输中', 1, 1, NULL, 2, '2026-01-29 03:30:50', 1, NULL, 1, '2026-01-29 03:30:50', '2026-01-29 03:31:03');
-INSERT INTO `package` VALUES (6, 'GPOT1769662127764321', '谭浩毅', '19826151596', '测试1sss', '韩立', '18862666020', '测试2dddd', '文件', 1.00, '1x1x1', '已入库', 1, 1, NULL, 2, '2026-01-29 05:45:55', 1, NULL, NULL, '2026-01-29 05:45:55', NULL);
-INSERT INTO `package` VALUES (7, 'GPOT1769666268224384', '谭浩毅', '19826151596', '2026年1月29日13:57:38', '韩立', '18862666020', '2026年1月29日13:57:42', '文件', 1.00, '1x1x1', '已入库', 1, 1, NULL, 2, '2026-01-29 05:58:21', 1, NULL, NULL, '2026-01-29 05:58:21', NULL);
-INSERT INTO `package` VALUES (8, 'GPOT1769666358160585', '谭浩毅', '19826151596', '2026年1月29日13:59:13', '韩立', '18862666020', '2026年1月29日13:59:14', '服装', 1.00, '1x1x1', '已入库', 1, 1, NULL, 2, '2026-01-29 05:59:34', 1, NULL, NULL, '2026-01-29 05:59:34', NULL);
-INSERT INTO `package` VALUES (9, 'GPOT1769666680078987', '谭浩毅', '19826151596', '2026年1月29日14:04:36', '韩立', '18862666020', '2026年1月29日14:04:37', '服装', 1.00, '1x1x1', '已入库', 1, 1, NULL, 2, '2026-01-29 06:04:55', 1, NULL, NULL, '2026-01-29 06:04:55', NULL);
+INSERT INTO `package` VALUES (3, 'GPOT1768630138407132', '谭浩毅', '19826151596', '测试3', '韩立', '18862666020', '测试4', '食品', 2.00, '30x20x10', '已入库', 1, 1, NULL, NULL, 1, '2026-01-21 05:04:19', 1, NULL, NULL, '2026-01-21 05:04:19', NULL);
+INSERT INTO `package` VALUES (4, 'GPOT1769499626646342', '谭浩毅', '19826151596', 'aaa', '韩立', '18862666020', 'bbb', '食品', 2.00, '30x20x50', '待取件', 1, 1, NULL, NULL, 2, '2026-01-28 02:08:57', 4, NULL, 1, '2026-01-28 02:08:57', '2026-01-28 03:23:22');
+INSERT INTO `package` VALUES (5, 'GPOT1769657202822876', '谭浩毅', '19826151596', 'BBBD', '韩立', '18862666020', 'FGFF', '文件', 2.00, '30x20x50', '运输中', 1, 1, NULL, NULL, 2, '2026-01-29 03:30:50', 1, NULL, 1, '2026-01-29 03:30:50', '2026-01-29 03:31:03');
+INSERT INTO `package` VALUES (6, 'GPOT1769662127764321', '谭浩毅', '19826151596', '测试1sss', '韩立', '18862666020', '测试2dddd', '文件', 1.00, '1x1x1', '已入库', 1, 1, NULL, NULL, 2, '2026-01-29 05:45:55', 1, NULL, NULL, '2026-01-29 05:45:55', NULL);
+INSERT INTO `package` VALUES (7, 'GPOT1769666268224384', '谭浩毅', '19826151596', '2026年1月29日13:57:38', '韩立', '18862666020', '2026年1月29日13:57:42', '文件', 1.00, '1x1x1', '已入库', 1, 1, NULL, NULL, 2, '2026-01-29 05:58:21', 1, NULL, NULL, '2026-01-29 05:58:21', NULL);
+INSERT INTO `package` VALUES (8, 'GPOT1769666358160585', '谭浩毅', '19826151596', '2026年1月29日13:59:13', '韩立', '18862666020', '2026年1月29日13:59:14', '服装', 1.00, '1x1x1', '已入库', 1, 1, NULL, NULL, 2, '2026-01-29 05:59:34', 1, NULL, NULL, '2026-01-29 05:59:34', NULL);
+INSERT INTO `package` VALUES (9, 'GPOT1769666680078987', '谭浩毅', '19826151596', '2026年1月29日14:04:36', '韩立', '18862666020', '2026年1月29日14:04:37', '服装', 1.00, '1x1x1', '已入库', 1, 1, NULL, NULL, 2, '2026-01-29 06:04:55', 1, NULL, NULL, '2026-01-29 06:04:55', NULL);
+INSERT INTO `package` VALUES (10, 'GPOT1769666880182662', '谭浩毅', '19826151596', '2026年1月29日14:07:55', '韩立', '18862666020', '2026年1月29日14:07:57', '其他', 1.00, '1x1x1', '已入库', 1, 1, 1, NULL, 2, '2026-01-29 06:08:16', 1, NULL, NULL, '2026-01-29 06:08:16', NULL);
+INSERT INTO `package` VALUES (11, 'GPOT1769668646483752', '谭浩毅', '19826151596', '2026年1月29日14:37:20', '韩立', '18862666020', '2026年1月29日14:37:23', '文件', 1.00, '1x1x1', '已入库', 1, 1, 1, '1-1-WLJEYX', 2, '2026-01-29 06:37:44', 2, NULL, NULL, '2026-01-29 06:37:44', NULL);
+INSERT INTO `package` VALUES (12, 'GPOT1769749012164783', '谭浩毅', '19826151596', 'CS1', '韩立', '18862666020', 'CS2', '文件', 1.00, '1x1x1', '已入库', 1, 1, 1, '1-1-NQHA2P', 2, '2026-01-30 05:00:39', 5, NULL, NULL, '2026-01-30 05:00:39', NULL);
 
 -- ----------------------------
 -- Table structure for package_entry
@@ -240,7 +246,7 @@ CREATE TABLE `package_entry`  (
   CONSTRAINT `package_entry_ibfk_2` FOREIGN KEY (`employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_entry_ibfk_3` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_entry_ibfk_4` FOREIGN KEY (`shelf_id`) REFERENCES `shelf` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '入库记录表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '入库记录表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of package_entry
@@ -252,6 +258,9 @@ INSERT INTO `package_entry` VALUES (4, 6, 2, 1, 1, NULL, '扫码录入', '2026-0
 INSERT INTO `package_entry` VALUES (5, 7, 2, 1, 1, NULL, '扫码录入', '2026-01-29 05:58:21', '核验成功后自动入库', '2026-01-29 05:58:21');
 INSERT INTO `package_entry` VALUES (6, 8, 2, 1, 1, NULL, '扫码录入', '2026-01-29 05:59:34', '核验成功后自动入库', '2026-01-29 05:59:34');
 INSERT INTO `package_entry` VALUES (7, 9, 2, 1, 1, NULL, '扫码录入', '2026-01-29 06:04:55', '核验成功后自动入库', '2026-01-29 06:04:55');
+INSERT INTO `package_entry` VALUES (8, 10, 2, 1, 1, 1, '扫码录入', '2026-01-29 06:08:16', '核验成功后自动入库', '2026-01-29 06:08:16');
+INSERT INTO `package_entry` VALUES (9, 11, 2, 1, 1, 1, '扫码录入', '2026-01-29 06:37:44', '核验成功后自动入库', '2026-01-29 06:37:44');
+INSERT INTO `package_entry` VALUES (10, 12, 2, 1, 1, 1, '扫码录入', '2026-01-30 05:00:39', '核验成功后自动入库', '2026-01-30 05:00:39');
 
 -- ----------------------------
 -- Table structure for package_outbound
@@ -320,7 +329,7 @@ CREATE TABLE `package_temp`  (
   CONSTRAINT `package_temp_ibfk_2` FOREIGN KEY (`shelf_id`) REFERENCES `shelf` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_temp_ibfk_3` FOREIGN KEY (`entry_employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_temp_ibfk_4` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '临时包裹表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 17 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '临时包裹表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for shelf
@@ -333,14 +342,14 @@ CREATE TABLE `shelf`  (
   `shelf_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '货架类型',
   `capacity` int(0) NULL DEFAULT 0 COMMENT '容量',
   `current_count` int(0) NULL DEFAULT 0 COMMENT '当前数量',
-  `status` tinyint(0) NULL DEFAULT 1 COMMENT '状态(1:正常,0:禁用)',
+  `status` tinyint(0) NULL DEFAULT 1,
   `create_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP(0) COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `shelf_code`(`shelf_code`) USING BTREE,
   INDEX `warehouse_id`(`warehouse_id`) USING BTREE,
   CONSTRAINT `shelf_ibfk_1` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '货架表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '货架表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of shelf
@@ -376,6 +385,7 @@ INSERT INTO `user` VALUES (1, 'thydada', '12345', '谭浩毅', NULL, NULL, NULL,
 INSERT INTO `user` VALUES (2, 'thydada2', '12345', '韩立', NULL, NULL, NULL, 1, '2026-01-14 02:28:31', NULL);
 INSERT INTO `user` VALUES (3, 'thydada3', '12345', '张三', NULL, NULL, NULL, 1, '2026-01-15 05:06:56', NULL);
 INSERT INTO `user` VALUES (4, 'thydada4', '123', '微软', NULL, NULL, NULL, 1, '2026-01-27 07:39:58', NULL);
+INSERT INTO `user` VALUES (5, 'thydada5', '123', '是的', NULL, NULL, NULL, 1, '2026-01-30 04:56:13', NULL);
 
 -- ----------------------------
 -- Table structure for warehouse
@@ -393,7 +403,7 @@ CREATE TABLE `warehouse`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `warehouse_code`(`warehouse_code`) USING BTREE,
   INDEX `manager_id`(`manager_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '仓库表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '仓库表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of warehouse
