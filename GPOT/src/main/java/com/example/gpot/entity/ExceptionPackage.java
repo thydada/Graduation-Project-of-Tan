@@ -18,6 +18,9 @@ public class ExceptionPackage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "package_id", comment = "包裹ID（正式包裹ID，可为空）")
+    private Long packageId;
+
     @Column(nullable = false, comment = "包裹ID（临时包裹ID）")
     private Long tempPackageId;
 

@@ -78,6 +78,74 @@
       </div>
     </div>
 
+    <!-- 异常件登记子页面 -->
+    <div v-if="activeTab === 'exception'" class="scan-section">
+      <div class="scan-card">
+        <div class="scan-card-header">
+          <h2>异常件登记</h2>
+        </div>
+        <p class="scan-desc">
+          在此输入快递单号，系统将根据快递单号在正式表中查找
+          <span class="highlight-text">状态为"待入库"</span> 的包裹并标记为异常。
+        </p>
+
+        <div class="scan-form">
+          <div class="form-row">
+            <label class="form-label">
+              快递单号 <span class="required">*</span>
+            </label>
+            <input
+              v-model="exceptionTrackingNumber"
+              type="text"
+              class="form-input"
+              placeholder="请输入/粘贴快递单号（模拟扫描条形码）"
+            />
+          </div>
+
+          <div class="form-row">
+            <label class="form-label">
+              异常类型 <span class="required">*</span>
+            </label>
+            <select v-model="exceptionType" class="form-select">
+              <option :value="null">请选择异常类型</option>
+              <option value="包裹破损">包裹破损</option>
+              <option value="收件人信息错误">收件人信息错误</option>
+              <option value="包裹信息不符">包裹信息不符</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label class="form-label">
+              异常原因
+            </label>
+            <textarea
+              v-model="exceptionReason"
+              class="form-input"
+              placeholder="请输入异常原因（可选）"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div class="scan-actions">
+            <button class="btn btn-scan" @click="handleExceptionReport" :disabled="exceptionLoading">
+              <span v-if="!exceptionLoading" class="btn-text"> 异常件登记完成</span>
+              <span v-else class="btn-text">登记中...</span>
+            </button>
+          </div>
+
+          <div v-if="exceptionSuccessMessage" class="scan-success-message">
+            <span class="success-icon">✓</span>
+            {{ exceptionSuccessMessage }}
+          </div>
+          <div v-if="exceptionErrorMessage" class="scan-error-message">
+            <span class="error-icon">✗</span>
+            {{ exceptionErrorMessage }}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 手动入库子页面（原列表页面） -->
     <div v-if="activeTab === 'manual'">
       <div class="manual-header">
@@ -175,9 +243,12 @@ export default {
     const selectedShelfId = ref(null)
     const selectedShelfLayer = ref(null)
 
-    // 当前入库模式：scan 扫码入库，manual 手动入库（由路由决定）
+    // 当前入库模式：scan 扫码入库，manual 手动入库，exception 异常件登记（由路由决定）
     const route = useRoute()
-    const activeTab = ref(route.name === 'EmployeePackageManual' ? 'manual' : 'scan')
+    const activeTab = ref(
+      route.name === 'EmployeePackageManual' ? 'manual' :
+      route.name === 'EmployeePackageException' ? 'exception' : 'scan'
+    )
 
     // 监听路由变化，实时切换 tab
     watch(() => route.name, (newRouteName) => {
@@ -185,6 +256,8 @@ export default {
         activeTab.value = 'manual'
       } else if (newRouteName === 'EmployeePackageScan') {
         activeTab.value = 'scan'
+      } else if (newRouteName === 'EmployeePackageException') {
+        activeTab.value = 'exception'
       }
     })
 
@@ -195,6 +268,14 @@ export default {
     const scanLoading = ref(false)
     const scanSuccessMessage = ref('')
     const scanErrorMessage = ref('')
+
+    // 异常件登记相关
+    const exceptionTrackingNumber = ref('')
+    const exceptionType = ref(null)
+    const exceptionReason = ref('')
+    const exceptionLoading = ref(false)
+    const exceptionSuccessMessage = ref('')
+    const exceptionErrorMessage = ref('')
 
     // 获取当前登录员工信息
     const getCurrentEmployeeId = () => {
@@ -378,6 +459,69 @@ export default {
       return ''
     }
 
+    // 异常件登记逻辑：根据快递单号查询 package，再调用异常登记接口
+    const handleExceptionReport = async () => {
+      exceptionLoading.value = true
+      exceptionSuccessMessage.value = ''
+      exceptionErrorMessage.value = ''
+
+      try {
+        if (!exceptionTrackingNumber.value) {
+          exceptionErrorMessage.value = '请先输入快递单号'
+          exceptionLoading.value = false
+          return
+        }
+        if (!exceptionType.value) {
+          exceptionErrorMessage.value = '请先选择异常类型'
+          exceptionLoading.value = false
+          return
+        }
+
+        // 1. 通过快递单号查询包裹
+        const pkgResp = await api.getPackageByTrackingNumber(exceptionTrackingNumber.value)
+        if (!pkgResp.data || !pkgResp.data.success || !pkgResp.data.data) {
+          exceptionErrorMessage.value = pkgResp.data?.message || '未找到该快递单号对应的包裹'
+          exceptionLoading.value = false
+          return
+        }
+
+        const pkg = pkgResp.data.data
+        if (pkg.status !== '待入库') {
+          exceptionErrorMessage.value = `该包裹当前状态为「${pkg.status || '未知'}」，无法执行异常登记（仅支持待入库）`
+          exceptionLoading.value = false
+          return
+        }
+
+        const employeeId = getCurrentEmployeeId()
+
+        // 2. 调用异常登记接口
+        const exceptionResp = await api.reportFormalPackageException(
+          pkg.id,
+          exceptionType.value,
+          exceptionReason.value,
+          employeeId,
+          'inbound'
+        )
+
+        if (exceptionResp.data && exceptionResp.data.success) {
+          exceptionSuccessMessage.value = exceptionResp.data.message || '异常件登记成功'
+          // 清空表单
+          exceptionTrackingNumber.value = ''
+          exceptionType.value = null
+          exceptionReason.value = ''
+          // 如果手动列表中也有这条包裹，则同步移除
+          packages.value = packages.value.filter(p => p.id !== pkg.id)
+        } else {
+          exceptionErrorMessage.value = exceptionResp.data?.message || '异常件登记失败'
+        }
+      } catch (e) {
+        console.error('handleExceptionReport error', e)
+        exceptionErrorMessage.value = e.response?.data?.message || e.message || '异常件登记失败，请稍后重试'
+      } finally {
+        exceptionLoading.value = false
+      }
+    }
+
     // 页面加载时获取数据
     onMounted(() => {
       loadShelfSelection()
@@ -408,7 +552,15 @@ export default {
       // 货架选择相关
       selectedShelfId,
       selectedShelfLayer,
-      saveShelfSelection
+      saveShelfSelection,
+      // 异常件登记相关
+      exceptionTrackingNumber,
+      exceptionType,
+      exceptionReason,
+      exceptionLoading,
+      exceptionSuccessMessage,
+      exceptionErrorMessage,
+      handleExceptionReport
     }
   }
 }

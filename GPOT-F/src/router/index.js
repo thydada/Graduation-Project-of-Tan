@@ -3,6 +3,7 @@ import LoginView from '../views/LoginView.vue'
 import MainLayout from '../views/MainLayout.vue'
 import UserPackagesView from '../views/UserPackagesView.vue'
 import WelcomeView from '../views/WelcomeView.vue'
+import AdminDashboardView from '../views/AdminDashboardView.vue'
 import ExceptionView from '../views/ExceptionView.vue'
 import EmployeeLayout from '../views/EmployeeLayout.vue'
 import EmployeeProfileView from '../views/EmployeeProfileView.vue'
@@ -43,6 +44,11 @@ const routes = [
     component: WelcomeView
   },
   {
+    path: '/admin/dashboard',
+    name: 'AdminDashboard',
+    component: AdminDashboardView
+  },
+  {
     path: '/exception',
     name: 'ExceptionStandalone',
     component: ExceptionView
@@ -66,6 +72,11 @@ const routes = [
       {
         path: 'package/manual',
         name: 'EmployeePackageManual',
+        component: EmployeePackageView
+      },
+      {
+        path: 'package/exception',
+        name: 'EmployeePackageException',
         component: EmployeePackageView
       },
       {

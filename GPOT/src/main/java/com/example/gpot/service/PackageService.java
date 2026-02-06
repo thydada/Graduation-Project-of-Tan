@@ -7,21 +7,29 @@ import com.example.gpot.entity.Package;
 import com.example.gpot.entity.PackageEntry;
 import com.example.gpot.entity.PackageOutbound;
 import com.example.gpot.entity.PackageTemp;
+import com.example.gpot.repository.AdminRepository;
 import com.example.gpot.repository.EmployeeRepository;
 import com.example.gpot.repository.ExceptionPackageRepository;
 import com.example.gpot.repository.PackageEntryRepository;
 import com.example.gpot.repository.PackageOutboundRepository;
 import com.example.gpot.repository.PackageRepository;
 import com.example.gpot.repository.PackageTempRepository;
+import com.example.gpot.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class PackageService {
@@ -43,6 +51,12 @@ public class PackageService {
 
     @Autowired
     private EmployeeRepository employeeRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private AdminRepository adminRepository;
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final char[] PICKUP_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
@@ -640,5 +654,135 @@ public class PackageService {
         pkg.setCreateTime(java.time.LocalDateTime.now());
         pkg.setUpdateTime(java.time.LocalDateTime.now());
         return packageRepository.save(pkg);
+    }
+
+    /**
+     * 报告正式包裹异常件
+     * 将正式包裹标记为异常，并写入异常件表
+     */
+    @Transactional
+    public Map<String, Object> reportFormalPackageException(Long packageId, String exceptionType,
+                                                           String exceptionReason, Long employeeId, String source) {
+        Optional<Package> packageOpt = packageRepository.findById(packageId);
+        if (!packageOpt.isPresent()) {
+            throw new RuntimeException("包裹不存在");
+        }
+
+        Package pkg = packageOpt.get();
+
+        Optional<Employee> employeeOpt = employeeRepository.findById(employeeId);
+        String employeeName = employeeOpt.isPresent() ? employeeOpt.get().getRealName() : "员工" + employeeId;
+
+        ExceptionPackage exceptionPkg = new ExceptionPackage();
+        exceptionPkg.setPackageId(packageId);
+        exceptionPkg.setTempPackageId(0L);
+        exceptionPkg.setTrackingNumber(pkg.getTrackingNumber());
+        exceptionPkg.setExceptionType(exceptionType);
+        exceptionPkg.setExceptionReason(exceptionReason);
+        exceptionPkg.setReportEmployeeId(employeeId);
+        exceptionPkg.setReportEmployeeName(employeeName);
+        exceptionPkg.setHandleStatus("待处理");
+        exceptionPkg.setSource(source);
+        exceptionPkg.setUserId(pkg.getUserId());
+        exceptionPkg.setReportTime(java.time.LocalDateTime.now());
+        exceptionPkg.setUpdateTime(java.time.LocalDateTime.now());
+
+        ExceptionPackage savedException = exceptionPackageRepository.save(exceptionPkg);
+
+        pkg.setStatus("异常");
+        pkg.setUpdateTime(java.time.LocalDateTime.now());
+        packageRepository.save(pkg);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("exceptionId", savedException.getId());
+        result.put("packageId", packageId);
+        result.put("trackingNumber", savedException.getTrackingNumber());
+        result.put("exceptionType", savedException.getExceptionType());
+        result.put("handleStatus", savedException.getHandleStatus());
+
+        return result;
+    }
+
+    /**
+     * 获取管理员统计数据
+     */
+    public Map<String, Object> getAdminStatistics() {
+        Map<String, Object> stats = new HashMap<>();
+
+        long totalPackages = packageRepository.count();
+        long pendingInbound = packageRepository.findByStatusOrderByCreateTimeDesc("待入库").size();
+        long inStock = packageRepository.findByStatusOrderByCreateTimeDesc("已入库").size();
+        long inTransit = packageRepository.findByStatusOrderByCreateTimeDesc("运输中").size();
+        long delivered = packageRepository.findByStatusOrderByCreateTimeDesc("已取件").size();
+        long exception = packageRepository.findByStatusOrderByCreateTimeDesc("异常").size();
+
+        long totalTempPackages = packageTempRepository.count();
+        long totalExceptionPackages = exceptionPackageRepository.count();
+        long pendingException = exceptionPackageRepository.findByHandleStatusOrderByReportTimeDesc("待处理").size();
+        long processingException = exceptionPackageRepository.findByHandleStatusOrderByReportTimeDesc("处理中").size();
+        long completedException = exceptionPackageRepository.findByHandleStatusOrderByReportTimeDesc("已处理").size();
+
+        long totalUsers = userRepository.count();
+        long totalEmployees = employeeRepository.count();
+        long totalAdmins = adminRepository.count();
+
+        long totalEntries = packageEntryRepository.count();
+        long totalOutbounds = packageOutboundRepository.count();
+
+        stats.put("totalPackages", totalPackages);
+        stats.put("pendingInbound", pendingInbound);
+        stats.put("inStock", inStock);
+        stats.put("inTransit", inTransit);
+        stats.put("delivered", delivered);
+        stats.put("exception", exception);
+        stats.put("totalTempPackages", totalTempPackages);
+        stats.put("totalExceptionPackages", totalExceptionPackages);
+        stats.put("pendingException", pendingException);
+        stats.put("processingException", processingException);
+        stats.put("completedException", completedException);
+        stats.put("totalUsers", totalUsers);
+        stats.put("totalEmployees", totalEmployees);
+        stats.put("totalAdmins", totalAdmins);
+        stats.put("totalEntries", totalEntries);
+        stats.put("totalOutbounds", totalOutbounds);
+
+        return stats;
+    }
+
+    /**
+     * 获取近几日入库统计
+     */
+    public List<Map<String, Object>> getDailyEntryStatistics(int days) {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(days - 1);
+        
+        List<PackageEntry> entries = packageEntryRepository.findAll();
+        
+        Map<String, Long> dailyCounts = entries.stream()
+            .filter(entry -> {
+                LocalDateTime entryTime = entry.getEntryTime();
+                if (entryTime == null) return false;
+                LocalDate entryDate = entryTime.toLocalDate();
+                return !entryDate.isBefore(startDate) && !entryDate.isAfter(endDate);
+            })
+            .collect(Collectors.groupingBy(
+                entry -> entry.getEntryTime().toLocalDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+                Collectors.counting()
+            ));
+        
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (int i = 0; i < days; i++) {
+            LocalDate date = startDate.plusDays(i);
+            String dateStr = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String dateLabel = date.format(DateTimeFormatter.ofPattern("MM/dd"));
+            
+            Map<String, Object> dayData = new HashMap<>();
+            dayData.put("date", dateStr);
+            dayData.put("dateLabel", dateLabel);
+            dayData.put("count", dailyCounts.getOrDefault(dateStr, 0L));
+            result.add(dayData);
+        }
+        
+        return result;
     }
 }

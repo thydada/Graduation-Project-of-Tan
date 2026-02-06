@@ -108,6 +108,11 @@ export default {
               name: 'EmployeePackageManual',
               title: '手动入库',
               path: '/employee/package/manual'
+            },
+            {
+              name: 'EmployeePackageException',
+              title: '异常件登记',
+              path: '/employee/package/exception'
             }
           ]
         },
@@ -138,7 +143,7 @@ export default {
 
     // 监听路由变化，自动展开快递入库父菜单
     const unwatch = router.afterEach((to) => {
-      if (to.name === 'EmployeePackageScan' || to.name === 'EmployeePackageManual') {
+      if (to.name === 'EmployeePackageScan' || to.name === 'EmployeePackageManual' || to.name === 'EmployeePackageException') {
         if (!expandedMenus.value.includes('EmployeePackageGroup')) {
           expandedMenus.value.push('EmployeePackageGroup')
         }
@@ -160,7 +165,7 @@ export default {
 
       // 如果当前在快递入库的子页面，自动展开父菜单
       const currentRoute = router.currentRoute.value.name
-      if (currentRoute === 'EmployeePackageScan' || currentRoute === 'EmployeePackageManual') {
+      if (currentRoute === 'EmployeePackageScan' || currentRoute === 'EmployeePackageManual' || currentRoute === 'EmployeePackageException') {
         expandedMenus.value = ['EmployeePackageGroup']
       }
     })

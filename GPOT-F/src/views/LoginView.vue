@@ -182,7 +182,7 @@ export default {
             // 员工登录，统一跳转到员工布局页面
             router.push('/employee/profile')
           } else if (selectedUserType.value === 'admin') {
-            router.push('/welcome')
+            router.push('/admin/dashboard')
           } else {
             // 普通用户跳转到“我的包裹”
             router.push('/main/packages')

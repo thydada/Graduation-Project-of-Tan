@@ -20,6 +20,10 @@
           <label>寄件人地址</label>
           <input v-model="form.senderAddress" type="text" placeholder="例如：某某大学某某楼" />
         </div>
+        <div class="form-row">
+          <label>寄件人用户ID</label>
+          <input v-model.number="form.userId" type="number" min="1" placeholder="例如：1" />
+        </div>
 
         <h2>收件人信息</h2>
         <div class="form-row">
@@ -71,7 +75,10 @@
           <button type="button" class="btn-secondary" @click="$router.push('/')">
             返回登录
           </button>
-          <button type="submit" class="btn-primary" :disabled="loading">
+          <button type="button" class="btn-batch" @click="handleBatchSubmit" :disabled="loading || batchLoading">
+            {{ batchLoading ? `批量生成中... (${batchProgress}/5)` : '连续生成（5个）' }}
+          </button>
+          <button type="submit" class="btn-primary" :disabled="loading || batchLoading">
             {{ loading ? '创建中...' : '生成测试快递' }}
           </button>
         </div>
@@ -82,6 +89,14 @@
         <p v-if="createdTrackingNumber">
           快递单号：<span class="tracking">{{ createdTrackingNumber }}</span>
         </p>
+        <div v-if="batchTrackingNumbers && batchTrackingNumbers.length > 0" class="batch-results">
+          <p><strong>批量生成成功！共生成 {{ batchTrackingNumbers.length }} 个快递：</strong></p>
+          <ul>
+            <li v-for="(tracking, index) in batchTrackingNumbers" :key="index">
+              <span class="tracking">{{ tracking }}</span>
+            </li>
+          </ul>
+        </div>
       </div>
 
       <div v-if="errorMessage" class="error-message">
@@ -99,14 +114,18 @@ export default {
   name: 'DebugCreatePackageView',
   setup() {
     const loading = ref(false)
+    const batchLoading = ref(false)
+    const batchProgress = ref(0)
     const successMessage = ref('')
     const errorMessage = ref('')
     const createdTrackingNumber = ref('')
+    const batchTrackingNumbers = ref([])
 
     const form = ref({
       senderName: '',
       senderPhone: '',
       senderAddress: '',
+      userId: null,
       receiverName: '',
       receiverPhone: '',
       receiverAddress: '',
@@ -121,6 +140,7 @@ export default {
       successMessage.value = ''
       errorMessage.value = ''
       createdTrackingNumber.value = ''
+      batchTrackingNumbers.value = []
 
       try {
         const payload = {
@@ -134,14 +154,14 @@ export default {
           weight: form.value.weight,
           size: form.value.size,
           status: form.value.status || null,
-          userId: null
+          userId: form.value.userId || null
         }
 
         const resp = await api.debugCreatePackage(payload)
         if (resp.data && resp.data.success) {
           const pkg = resp.data.data
           createdTrackingNumber.value = pkg.trackingNumber
-          successMessage.value = '调试包裹创建成功！可以在员工“全部包裹”等页面查看。'
+          successMessage.value = '调试包裹创建成功！可以在员工"全部包裹"等页面查看。'
         } else {
           errorMessage.value = resp.data?.message || '创建失败'
         }
@@ -153,13 +173,84 @@ export default {
       }
     }
 
+    const handleBatchSubmit = async () => {
+      if (!form.value.senderName || !form.value.senderPhone || !form.value.receiverName || !form.value.receiverPhone || !form.value.packageType) {
+        errorMessage.value = '请先填写必填项（寄件人姓名、电话、收件人姓名、电话、包裹类型）'
+        return
+      }
+
+      batchLoading.value = true
+      batchProgress.value = 0
+      successMessage.value = ''
+      errorMessage.value = ''
+      createdTrackingNumber.value = ''
+      batchTrackingNumbers.value = []
+
+      const baseSenderAddress = form.value.senderAddress || ''
+      const baseReceiverAddress = form.value.receiverAddress || ''
+      const successList = []
+      const errorList = []
+
+      try {
+        for (let i = 0; i < 5; i++) {
+          batchProgress.value = i + 1
+          const timestamp = Date.now() + i
+
+          const payload = {
+            senderName: form.value.senderName,
+            senderPhone: form.value.senderPhone,
+            senderAddress: baseSenderAddress ? `${baseSenderAddress}_${timestamp}` : `地址_${timestamp}`,
+            receiverName: form.value.receiverName,
+            receiverPhone: form.value.receiverPhone,
+            receiverAddress: baseReceiverAddress ? `${baseReceiverAddress}_${timestamp}` : `地址_${timestamp}`,
+            packageType: form.value.packageType,
+            weight: form.value.weight,
+            size: form.value.size,
+            status: form.value.status || null,
+            userId: form.value.userId || null
+          }
+
+          try {
+            const resp = await api.debugCreatePackage(payload)
+            if (resp.data && resp.data.success) {
+              const pkg = resp.data.data
+              successList.push(pkg.trackingNumber)
+            } else {
+              errorList.push(`第${i + 1}个: ${resp.data?.message || '创建失败'}`)
+            }
+          } catch (e) {
+            console.error(`批量创建第${i + 1}个快递失败:`, e)
+            errorList.push(`第${i + 1}个: ${e.response?.data?.message || e.message || '创建失败'}`)
+          }
+        }
+
+        batchTrackingNumbers.value = successList
+        if (successList.length > 0) {
+          successMessage.value = `批量生成完成！成功生成 ${successList.length} 个快递，失败 ${errorList.length} 个。`
+        }
+        if (errorList.length > 0) {
+          errorMessage.value = `部分失败：${errorList.join('; ')}`
+        }
+      } catch (e) {
+        console.error('批量生成错误:', e)
+        errorMessage.value = e.message || '批量生成过程中发生错误'
+      } finally {
+        batchLoading.value = false
+        batchProgress.value = 0
+      }
+    }
+
     return {
       form,
       loading,
+      batchLoading,
+      batchProgress,
       successMessage,
       errorMessage,
       createdTrackingNumber,
-      handleSubmit
+      batchTrackingNumbers,
+      handleSubmit,
+      handleBatchSubmit
     }
   }
 }
@@ -258,6 +349,25 @@ export default {
   color: #333;
 }
 
+.btn-batch {
+  background-color: #28a745;
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-batch:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-batch:hover:not(:disabled) {
+  background-color: #218838;
+}
+
 .success-message {
   margin-top: 16px;
   padding: 10px 12px;
@@ -280,6 +390,21 @@ export default {
   font-family: monospace;
   font-weight: 600;
   color: #dc143c;
+}
+
+.batch-results {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #c3e6cb;
+}
+
+.batch-results ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
+
+.batch-results li {
+  margin: 4px 0;
 }
 </style>
 

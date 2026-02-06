@@ -143,6 +143,26 @@ const apiService = {
       requestData.shelfLayer = shelfLayer
     }
     return api.put(`/packages/${packageId}/inbound`, requestData)
+  },
+
+  // 报告正式包裹异常件
+  async reportFormalPackageException(packageId, exceptionType, exceptionReason, employeeId = 1, source = 'inbound') {
+    return api.post(`/packages/${packageId}/report-exception`, {
+      exceptionType,
+      exceptionReason,
+      employeeId,
+      source
+    })
+  },
+
+  // 获取管理员统计数据
+  async getAdminStatistics() {
+    return api.get('/admin/statistics')
+  },
+
+  // 获取近几日入库统计
+  async getDailyEntryStatistics(days = 7) {
+    return api.get(`/admin/daily-entry-statistics?days=${days}`)
   }
 }
 

@@ -3,6 +3,7 @@ package com.example.gpot.controller;
 import com.example.gpot.dto.ApiResponse;
 import com.example.gpot.dto.DebugCreatePackageRequest;
 import com.example.gpot.dto.ExceptionReportRequest;
+import com.example.gpot.dto.FormalPackageExceptionRequest;
 import com.example.gpot.entity.ExceptionPackage;
 import com.example.gpot.entity.Package;
 import com.example.gpot.entity.PackageTemp;
@@ -417,6 +418,65 @@ public class PackageController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                 .body(ApiResponse.error("送达过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 获取系统统计数据（管理员监控大屏使用）
+     */
+    @GetMapping("/admin/statistics")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getAdminStatistics() {
+        try {
+            Map<String, Object> statistics = packageService.getAdminStatistics();
+            return ResponseEntity.ok(ApiResponse.success("查询成功", statistics));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("获取统计数据失败：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 获取近几日入库统计（管理员监控大屏使用）
+     */
+    @GetMapping("/admin/daily-entry-statistics")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getDailyEntryStatistics(@RequestParam(defaultValue = "7") int days) {
+        try {
+            List<Map<String, Object>> statistics = packageService.getDailyEntryStatistics(days);
+            return ResponseEntity.ok(ApiResponse.success("查询成功", statistics));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("获取每日入库统计失败：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 报告正式包裹异常件
+     * 将正式包裹标记为异常，并写入异常件表
+     */
+    @PostMapping("/packages/{packageId}/report-exception")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> reportFormalPackageException(
+            @PathVariable Long packageId,
+            @RequestBody FormalPackageExceptionRequest request) {
+        try {
+            if (request.getExceptionType() == null || request.getExceptionType().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("异常类型不能为空"));
+            }
+
+            Long employeeId = request.getEmployeeId() != null ? request.getEmployeeId() : 1L;
+            String source = request.getSource() != null ? request.getSource() : "inbound";
+
+            Map<String, Object> result = packageService.reportFormalPackageException(
+                packageId,
+                request.getExceptionType(),
+                request.getExceptionReason(),
+                employeeId,
+                source
+            );
+            return ResponseEntity.ok(ApiResponse.success("已记录为异常件", result));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("报告异常件过程中发生错误：" + e.getMessage()));
         }
     }
 }
