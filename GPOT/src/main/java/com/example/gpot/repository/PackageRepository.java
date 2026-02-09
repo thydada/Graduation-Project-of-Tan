@@ -32,4 +32,9 @@ public interface PackageRepository extends JpaRepository<Package, Long> {
     long countByShelfIdAndShelfLayerAndStatusNot(Long shelfId, Integer shelfLayer, String status);
 
     boolean existsByPickupCode(String pickupCode);
+
+    /**
+     * 根据收件人电话查询已入库的包裹列表
+     */
+    List<Package> findByReceiverPhoneAndStatusOrderByEntryTimeDesc(String receiverPhone, String status);
 }

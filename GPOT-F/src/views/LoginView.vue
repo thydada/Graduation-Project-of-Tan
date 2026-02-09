@@ -3,7 +3,6 @@
     <div class="login-card">
       <div class="title-bar">
         <h1 class="title">GPOT 快递管理系统</h1>
-        <button class="debug-link" @click="goDebug">Debug</button>
       </div>
 
       <!-- 用户类型选择 -->
@@ -53,6 +52,20 @@
           还没有账号？
           <button @click="isRegisterMode = true" class="link-btn">立即注册</button>
         </div>
+
+        <div class="quick-access">
+          <div class="quick-access-header" @click="toggleQuickAccess">
+            <span class="quick-access-title">快速入口</span>
+            <span class="quick-access-icon" :class="{ expanded: isQuickAccessExpanded }">▼</span>
+          </div>
+          <div class="quick-access-content" :class="{ expanded: isQuickAccessExpanded }">
+            <div class="quick-access-buttons">
+              <button class="quick-btn" @click="goTerminal">终端查询</button>
+              <button class="quick-btn" @click="goOutboundMachine">出库机器</button>
+              <button class="quick-btn debug-btn" @click="goDebug">Debug</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 注册表单 -->
@@ -101,6 +114,20 @@
           已有账号？
           <button @click="isRegisterMode = false" class="link-btn">返回登录</button>
         </div>
+
+        <div class="quick-access">
+          <div class="quick-access-header" @click="toggleQuickAccess">
+            <span class="quick-access-title">快速入口</span>
+            <span class="quick-access-icon" :class="{ expanded: isQuickAccessExpanded }">▼</span>
+          </div>
+          <div class="quick-access-content" :class="{ expanded: isQuickAccessExpanded }">
+            <div class="quick-access-buttons">
+              <button class="quick-btn" @click="goTerminal">终端查询</button>
+              <button class="quick-btn" @click="goOutboundMachine">出库机器</button>
+              <button class="quick-btn debug-btn" @click="goDebug">Debug</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 错误信息显示 -->
@@ -135,6 +162,7 @@ export default {
     const loading = ref(false)
     const errorMessage = ref('')
     const showRegisterSuccess = ref(false)
+    const isQuickAccessExpanded = ref(false)
 
     const userTypes = [
       { value: 'admin', label: '管理员' },
@@ -248,6 +276,18 @@ export default {
       router.push('/debug')
     }
 
+    const goTerminal = () => {
+      router.push('/terminal')
+    }
+
+    const goOutboundMachine = () => {
+      router.push('/outbound-machine')
+    }
+
+    const toggleQuickAccess = () => {
+      isQuickAccessExpanded.value = !isQuickAccessExpanded.value
+    }
+
     return {
       selectedUserType,
       isRegisterMode,
@@ -262,7 +302,11 @@ export default {
       handleBackToLogin,
       closeModal,
       getLoginTitle,
-      goDebug
+      goDebug,
+      goTerminal,
+      goOutboundMachine,
+      isQuickAccessExpanded,
+      toggleQuickAccess
     }
   }
 }
@@ -304,17 +348,86 @@ export default {
   padding-bottom: 8px;
 }
 
-.debug-link {
-  padding: 6px 12px;
+.quick-access {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.quick-access-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  padding: 8px 0;
+  transition: all 0.2s ease;
+}
+
+.quick-access-header:hover {
+  color: #DC143C;
+}
+
+.quick-access-title {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.quick-access-icon {
   font-size: 12px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
+  color: #999;
+  transition: transform 0.3s ease;
+}
+
+.quick-access-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.quick-access-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+
+.quick-access-content.expanded {
+  max-height: 200px;
+  opacity: 1;
+}
+
+.quick-access-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 16px;
+}
+
+.quick-btn {
+  padding: 12px;
+  font-size: 14px;
+  border-radius: 0;
+  border: 2px solid #cccccc;
   background-color: #fff;
   cursor: pointer;
   color: #666;
+  transition: all 0.2s ease;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
-.debug-link:hover {
+.quick-btn:hover {
+  border-color: #DC143C;
+  color: #DC143C;
+  background-color: #fff;
+}
+
+.quick-btn.debug-btn {
+  border-color: #999;
+  color: #999;
+}
+
+.quick-btn.debug-btn:hover {
   border-color: #DC143C;
   color: #DC143C;
 }

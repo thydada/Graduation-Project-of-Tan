@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import MainLayout from '../views/MainLayout.vue'
 import UserPackagesView from '../views/UserPackagesView.vue'
+import UserMessagesView from '../views/UserMessagesView.vue'
 import WelcomeView from '../views/WelcomeView.vue'
 import AdminDashboardView from '../views/AdminDashboardView.vue'
 import ExceptionView from '../views/ExceptionView.vue'
@@ -12,7 +13,10 @@ import EmployeeExceptionView from '../views/EmployeeExceptionView.vue'
 import EmployeeAllPackagesView from '../views/EmployeeAllPackagesView.vue'
 import EmployeeOutboundView from '../views/EmployeeOutboundView.vue'
 import EmployeeDeliveryView from '../views/EmployeeDeliveryView.vue'
+import EmployeeSendMessageView from '../views/EmployeeSendMessageView.vue'
 import DebugCreatePackageView from '../views/DebugCreatePackageView.vue'
+import TerminalQueryView from '../views/TerminalQueryView.vue'
+import OutboundMachineView from '../views/OutboundMachineView.vue'
 
 const routes = [
   {
@@ -26,6 +30,16 @@ const routes = [
     component: DebugCreatePackageView
   },
   {
+    path: '/terminal',
+    name: 'TerminalQuery',
+    component: TerminalQueryView
+  },
+  {
+    path: '/outbound-machine',
+    name: 'OutboundMachine',
+    component: OutboundMachineView
+  },
+  {
     path: '/main',
     name: 'Main',
     component: MainLayout,
@@ -35,6 +49,11 @@ const routes = [
         path: 'packages',
         name: 'UserPackages',
         component: UserPackagesView
+      },
+      {
+        path: 'messages',
+        name: 'UserMessages',
+        component: UserMessagesView
       }
     ]
   },
@@ -98,6 +117,11 @@ const routes = [
         path: 'delivery',
         name: 'EmployeeDelivery',
         component: EmployeeDeliveryView
+      },
+      {
+        path: 'send-message',
+        name: 'EmployeeSendMessage',
+        component: EmployeeSendMessageView
       }
     ]
   }

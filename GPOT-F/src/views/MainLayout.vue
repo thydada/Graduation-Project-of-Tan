@@ -59,6 +59,12 @@ export default {
         title: '我的包裹',
         path: '/main/packages',
         icon: '件'
+      },
+      {
+        name: 'UserMessages',
+        title: '我的消息',
+        path: '/main/messages',
+        icon: '信'
       }
     ]
 

@@ -58,6 +58,9 @@ public class PackageService {
     @Autowired
     private AdminRepository adminRepository;
 
+    @Autowired
+    private MessageService messageService;
+
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final char[] PICKUP_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
 
@@ -97,6 +100,13 @@ public class PackageService {
      */
     public Optional<Package> getPackageByTrackingNumber(String trackingNumber) {
         return packageRepository.findByTrackingNumber(trackingNumber);
+    }
+
+    /**
+     * 根据收件人电话查询已入库的包裹列表
+     */
+    public List<Package> getPackagesByReceiverPhone(String receiverPhone) {
+        return packageRepository.findByReceiverPhoneAndStatusOrderByEntryTimeDesc(receiverPhone, "已入库");
     }
 
     /**
@@ -382,7 +392,26 @@ public class PackageService {
         // 6. 从临时表删除该条记录
         packageTempRepository.delete(tempPackage);
 
-        // 7. 返回结果
+        // 7. 发送取件提醒消息（如果用户ID存在）
+        if (savedPackage.getUserId() != null) {
+            try {
+                messageService.sendPickupNotification(
+                    savedPackage.getUserId(),
+                    savedPackage.getTrackingNumber(),
+                    pickupCode,
+                    shelfId,
+                    shelfLayer,
+                    warehouseId,
+                    "employee",
+                    employeeId
+                );
+            } catch (Exception e) {
+                // 消息发送失败不影响入库流程
+                System.err.println("发送取件提醒消息失败: " + e.getMessage());
+            }
+        }
+
+        // 8. 返回结果
         Map<String, Object> result = new java.util.HashMap<>();
         result.put("packageId", savedPackage.getId());
         result.put("trackingNumber", savedPackage.getTrackingNumber());
@@ -540,6 +569,40 @@ public class PackageService {
     }
 
     /**
+     * 用户取件操作：根据快递单号将包裹状态改为已取件（终端机出库使用）
+     */
+    @Transactional
+    public Map<String, Object> userPickupPackage(String trackingNumber) {
+        // 1. 根据快递单号查询包裹
+        Optional<Package> packageOpt = packageRepository.findByTrackingNumber(trackingNumber);
+        if (!packageOpt.isPresent()) {
+            throw new RuntimeException("包裹不存在");
+        }
+
+        Package pkg = packageOpt.get();
+
+        // 2. 检查包裹状态
+        if (!"已入库".equals(pkg.getStatus()) && !"待取件".equals(pkg.getStatus())) {
+            throw new RuntimeException("只有已入库或待取件的包裹才能取件");
+        }
+
+        // 3. 更新包裹状态
+        pkg.setStatus("已取件");
+        pkg.setUpdateTime(java.time.LocalDateTime.now());
+        packageRepository.save(pkg);
+
+        // 4. 返回结果
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("packageId", pkg.getId());
+        result.put("trackingNumber", pkg.getTrackingNumber());
+        result.put("status", pkg.getStatus());
+        result.put("receiverName", pkg.getReceiverName());
+        result.put("pickupCode", pkg.getPickupCode());
+
+        return result;
+    }
+
+    /**
      * 员工对正式包裹执行入库操作（从待入库 -> 已入库）
      */
     @Transactional
@@ -604,6 +667,25 @@ public class PackageService {
                 "正式包裹入库（待入库 -> 已入库）"
         );
         packageEntryRepository.save(entryRecord);
+
+        // 发送取件提醒消息（如果用户ID存在）
+        if (savedPackage.getUserId() != null) {
+            try {
+                messageService.sendPickupNotification(
+                    savedPackage.getUserId(),
+                    savedPackage.getTrackingNumber(),
+                    pickupCode,
+                    shelfId,
+                    shelfLayer,
+                    warehouseId,
+                    "employee",
+                    employeeId
+                );
+            } catch (Exception e) {
+                // 消息发送失败不影响入库流程
+                System.err.println("发送取件提醒消息失败: " + e.getMessage());
+            }
+        }
 
         Map<String, Object> result = new java.util.HashMap<>();
         result.put("packageId", savedPackage.getId());

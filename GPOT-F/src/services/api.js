@@ -53,6 +53,16 @@ const apiService = {
     return api.get(`/packages/tracking/${trackingNumber}`)
   },
 
+  // 根据收件人电话查询已入库的包裹列表（终端机查询使用）
+  async getPackagesByReceiverPhone(receiverPhone) {
+    return api.get(`/packages/phone/${receiverPhone}`)
+  },
+
+  // 用户取件操作（终端机出库使用）
+  async userPickupPackage(trackingNumber) {
+    return api.post(`/packages/pickup/${trackingNumber}`)
+  },
+
   // 查询待核验的临时快递
   async getVerificationPendingPackages() {
     return api.get('/packages/temp/verification-pending')
@@ -163,6 +173,36 @@ const apiService = {
   // 获取近几日入库统计
   async getDailyEntryStatistics(days = 7) {
     return api.get(`/admin/daily-entry-statistics?days=${days}`)
+  },
+
+  // 获取用户消息列表
+  async getUserMessages(userId) {
+    return api.get(`/messages/user/${userId}`)
+  },
+
+  // 获取用户未读消息列表
+  async getUnreadMessages(userId) {
+    return api.get(`/messages/user/${userId}/unread`)
+  },
+
+  // 获取用户未读消息数量
+  async getUnreadMessageCount(userId) {
+    return api.get(`/messages/user/${userId}/unread-count`)
+  },
+
+  // 标记消息为已读
+  async markMessageAsRead(messageId) {
+    return api.put(`/messages/${messageId}/read`)
+  },
+
+  // 一键标记所有消息为已读
+  async markAllMessagesAsRead(userId) {
+    return api.put(`/messages/user/${userId}/read-all`)
+  },
+
+  // 发送消息给所有用户
+  async sendMessageToAllUsers(data) {
+    return api.post('/messages/send-to-all', data)
   }
 }
 

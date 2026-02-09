@@ -66,6 +66,20 @@ public class PackageController {
     }
 
     /**
+     * 根据收件人电话查询已入库的包裹列表（终端机查询使用）
+     */
+    @GetMapping("/packages/phone/{receiverPhone}")
+    public ResponseEntity<ApiResponse<List<Package>>> getPackagesByReceiverPhone(@PathVariable String receiverPhone) {
+        try {
+            List<Package> packages = packageService.getPackagesByReceiverPhone(receiverPhone);
+            return ResponseEntity.ok(ApiResponse.success("查询成功", packages));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
      * 查询所有待核验的临时快递（verification_success=0）
      */
     @GetMapping("/packages/temp/verification-pending")
@@ -477,6 +491,21 @@ public class PackageController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                 .body(ApiResponse.error("报告异常件过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 用户取件操作（终端机出库使用）
+     * 根据快递单号将包裹状态改为已取件
+     */
+    @PostMapping("/packages/pickup/{trackingNumber}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> userPickupPackage(@PathVariable String trackingNumber) {
+        try {
+            Map<String, Object> result = packageService.userPickupPackage(trackingNumber);
+            return ResponseEntity.ok(ApiResponse.success("取件成功", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error("取件失败：" + e.getMessage()));
         }
     }
 }

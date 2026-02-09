@@ -127,6 +127,12 @@ export default {
           title: '全部包裹',
           path: '/employee/all-packages',
           icon: '表'
+        },
+        {
+          name: 'EmployeeSendMessage',
+          title: '消息发送',
+          path: '/employee/send-message',
+          icon: '信'
         }
       ]
     })
