@@ -11,7 +11,7 @@
  Target Server Version : 80042
  File Encoding         : 65001
 
- Date: 02/02/2026 16:13:17
+ Date: 12/02/2026 13:31:05
 */
 
 SET NAMES utf8mb4;
@@ -91,7 +91,7 @@ CREATE TABLE `employee`  (
 -- ----------------------------
 -- Records of employee
 -- ----------------------------
-INSERT INTO `employee` VALUES (1, 'thydada', '1234', '谭浩毅', '18862666523', '3053596379@qq.com', 'A', '江苏苏州', 1, 1, '2026-01-19 16:53:50', '2026-01-29 11:22:59');
+INSERT INTO `employee` VALUES (1, 'thydada', '1234', '谭浩毅', '18862666523', '3053596379@qq.com', 'B', '江苏苏州', 1, 1, '2026-01-19 16:53:50', '2026-02-05 20:21:19');
 INSERT INTO `employee` VALUES (2, 'thydada2', '12345', '韩立', '18114523658', '525752231@qq.com', 'B', '江苏徐州', 1, 1, '2026-01-20 16:53:50', '2026-01-29 11:23:00');
 
 -- ----------------------------
@@ -128,7 +128,7 @@ CREATE TABLE `exception_package`  (
   CONSTRAINT `exception_package_ibfk_3` FOREIGN KEY (`handle_employee_id`) REFERENCES `employee` (`id`) ON DELETE SET NULL ON UPDATE SET NULL,
   CONSTRAINT `exception_package_ibfk_4` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `exception_package_ibfk_5` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '异常件表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '异常件表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of exception_package
@@ -137,6 +137,8 @@ INSERT INTO `exception_package` VALUES (4, NULL, '收件人信息错误', 'd', 1
 INSERT INTO `exception_package` VALUES (5, NULL, '包裹信息不符', '123', 2, NULL, NULL, '待处理', NULL, '2026-01-29 03:30:53', NULL, '2026-01-29 03:30:53', '员工2', 'verification', 'GPOT1769657214797364', 7, 1);
 INSERT INTO `exception_package` VALUES (6, NULL, '收件人信息错误', 'ddddx1', 1, NULL, NULL, '待处理', NULL, '2026-01-30 04:58:40', NULL, '2026-01-30 04:58:40', '员工1', 'pickup', 'GPOT1769749027534032', 17, 5);
 INSERT INTO `exception_package` VALUES (7, NULL, '包裹破损', 'sssss', 2, NULL, NULL, '待处理', NULL, '2026-01-30 05:01:01', NULL, '2026-01-30 05:01:01', '员工2', 'verification', 'GPOT1769749021583696', 16, 5);
+INSERT INTO `exception_package` VALUES (8, 14, '包裹破损', '2222', 1, NULL, NULL, '待处理', NULL, '2026-02-06 02:39:28', NULL, '2026-02-06 02:39:28', '谭浩毅', 'inbound', 'DBG1770345143004665', 0, NULL);
+INSERT INTO `exception_package` VALUES (9, 23, '包裹破损', '2026年2月6日11:22:023', 1, NULL, NULL, '待处理', NULL, '2026-02-06 03:22:05', NULL, '2026-02-06 03:22:05', '谭浩毅', 'inbound', 'DBG1770348016093856', 0, 1);
 
 -- ----------------------------
 -- Table structure for message
@@ -162,7 +164,22 @@ CREATE TABLE `message`  (
   CONSTRAINT `message_ibfk_1` FOREIGN KEY (`sender_id`) REFERENCES `admin` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `message_ibfk_2` FOREIGN KEY (`receiver_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `message_ibfk_3` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '消息表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '消息表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of message
+-- ----------------------------
+INSERT INTO `message` VALUES (1, '取件提醒', '您的快递已入库，请及时取件。\n\n快递单号：DBG1770346255706571\n取件码：1-1-JUKTCG\n货架位置：货架1 - 第1层\n\n请携带有效证件到快递驿站取件。', '取件提醒', 'employee', 1, 'user', 1, 1, '已读', '2026-02-09 03:00:23', '2026-02-09 03:01:24');
+INSERT INTO `message` VALUES (2, '取件提醒', '您的快递已入库，请及时取件。\n\n快递单号：DBG1770346255956103\n取件码：1-1-MVFB6K\n货架位置：货架1 - 第1层\n\n请携带有效证件到快递驿站取件。', '取件提醒', 'employee', 1, 'user', 1, 1, '已读', '2026-02-09 03:00:23', '2026-02-09 03:00:39');
+INSERT INTO `message` VALUES (3, '取件提醒', '您的快递已入库，请及时取件。\n\n快递单号：DBG1770346256024238\n取件码：1-1-S6ZVGV\n货架位置：货架1 - 第1层\n\n请携带有效证件到快递驿站取件。', '取件提醒', 'employee', 1, 'user', 1, 1, '已读', '2026-02-09 03:00:24', '2026-02-09 03:10:26');
+INSERT INTO `message` VALUES (4, '取件提醒', '您的快递已入库，请及时取件。\n\n快递单号：DBG1770346256273468\n取件码：1-1-H8HS5U\n货架位置：货架1 - 第1层\n\n请携带有效证件到快递驿站取件。', '取件提醒', 'employee', 1, 'user', 1, 1, '已读', '2026-02-09 03:00:25', '2026-02-09 03:10:26');
+INSERT INTO `message` VALUES (5, '取件提醒', '您的快递已入库，请及时取件。\n\n快递单号：DBG1770346256340302\n取件码：1-1-SYTNEX\n货架位置：货架1 - 第1层\n\n请携带有效证件到快递驿站取件。', '取件提醒', 'employee', 1, 'user', 1, 1, '已读', '2026-02-09 03:00:25', '2026-02-09 03:10:26');
+INSERT INTO `message` VALUES (6, '取件提醒', '您的快递已入库，请及时取件。\n\n快递单号：DBG1770346004745971\n取件码：1-1-ENFSQU\n货架位置：货架1 - 第1层\n\n请携带有效证件到快递驿站取件。', '取件提醒', 'employee', 1, 'user', 1, 1, '已读', '2026-02-09 03:00:25', '2026-02-09 03:10:26');
+INSERT INTO `message` VALUES (7, '年终福利', '现在寄件有优惠，详情到店咨询', '促销信息', 'employee', 1, 'user', 1, NULL, '已读', '2026-02-09 03:10:11', '2026-02-09 03:10:26');
+INSERT INTO `message` VALUES (8, '年终福利', '现在寄件有优惠，详情到店咨询', '促销信息', 'employee', 1, 'user', 2, NULL, '未读', '2026-02-09 03:10:11', NULL);
+INSERT INTO `message` VALUES (9, '年终福利', '现在寄件有优惠，详情到店咨询', '促销信息', 'employee', 1, 'user', 3, NULL, '未读', '2026-02-09 03:10:11', NULL);
+INSERT INTO `message` VALUES (10, '年终福利', '现在寄件有优惠，详情到店咨询', '促销信息', 'employee', 1, 'user', 4, NULL, '未读', '2026-02-09 03:10:11', NULL);
+INSERT INTO `message` VALUES (11, '年终福利', '现在寄件有优惠，详情到店咨询', '促销信息', 'employee', 1, 'user', 5, NULL, '未读', '2026-02-09 03:10:11', NULL);
 
 -- ----------------------------
 -- Table structure for package
@@ -189,7 +206,7 @@ CREATE TABLE `package`  (
   `entry_time` datetime(0) NULL DEFAULT NULL COMMENT '入库时间',
   `user_id` bigint(0) NULL DEFAULT NULL COMMENT '所属用户ID',
   `pickup_deadline` datetime(0) NULL DEFAULT NULL COMMENT '取件截止时间',
-  `delivery_employee_id` bigint(0) NULL DEFAULT NULL COMMENT '派送员工ID（员工A）',
+  `delivery_employee_id` bigint(0) NULL DEFAULT NULL COMMENT '派送员工ID',
   `create_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP(0) COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
@@ -206,7 +223,7 @@ CREATE TABLE `package`  (
   CONSTRAINT `package_ibfk_3` FOREIGN KEY (`entry_employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_ibfk_4` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_ibfk_5` FOREIGN KEY (`delivery_employee_id`) REFERENCES `employee` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 12 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '快递包裹表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 25 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '快递包裹表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of package
@@ -221,6 +238,19 @@ INSERT INTO `package` VALUES (9, 'GPOT1769666680078987', '谭浩毅', '198261515
 INSERT INTO `package` VALUES (10, 'GPOT1769666880182662', '谭浩毅', '19826151596', '2026年1月29日14:07:55', '韩立', '18862666020', '2026年1月29日14:07:57', '其他', 1.00, '1x1x1', '已入库', 1, 1, 1, NULL, 2, '2026-01-29 06:08:16', 1, NULL, NULL, '2026-01-29 06:08:16', NULL);
 INSERT INTO `package` VALUES (11, 'GPOT1769668646483752', '谭浩毅', '19826151596', '2026年1月29日14:37:20', '韩立', '18862666020', '2026年1月29日14:37:23', '文件', 1.00, '1x1x1', '已入库', 1, 1, 1, '1-1-WLJEYX', 2, '2026-01-29 06:37:44', 2, NULL, NULL, '2026-01-29 06:37:44', NULL);
 INSERT INTO `package` VALUES (12, 'GPOT1769749012164783', '谭浩毅', '19826151596', 'CS1', '韩立', '18862666020', 'CS2', '文件', 1.00, '1x1x1', '已入库', 1, 1, 1, '1-1-NQHA2P', 2, '2026-01-30 05:00:39', 5, NULL, NULL, '2026-01-30 05:00:39', NULL);
+INSERT INTO `package` VALUES (13, 'DBG1770294756323161', '韩立', '19826151596', '测试1', '谭浩毅', '19826151596', '测试1', '文件', 1.00, '30x20x10', '已入库', 1, 1, 1, '1-1-Y7MJ3V', 1, '2026-02-05 14:07:37', 1, NULL, NULL, '2026-02-05 12:32:37', '2026-02-06 10:41:40');
+INSERT INTO `package` VALUES (14, 'DBG1770345143004665', '韩立', '19826151596', '测试122211', '谭浩毅', '19826151596', '测试1', '文件', 1.00, '30x20x10', '异常', NULL, NULL, NULL, NULL, NULL, NULL, 1, NULL, NULL, '2026-02-06 02:32:23', '2026-02-06 10:41:41');
+INSERT INTO `package` VALUES (15, 'DBG1770346004745971', '韩立', '19826151596', '测试122211', '谭浩毅', '19826151596', '测试1', '文件', 1.00, '30x20x10', '已入库', 1, 1, 1, '1-1-ENFSQU', 1, '2026-02-09 03:00:25', 1, NULL, NULL, '2026-02-06 02:46:45', '2026-02-09 03:00:25');
+INSERT INTO `package` VALUES (16, 'DBG1770346255706571', '韩立', '19826151596', '测试122211_1770346255400', '谭浩毅', '19826151596', '测试1_1770346255400', '服装', 1.00, '30x20x10', '已入库', 1, 1, 1, '1-1-JUKTCG', 1, '2026-02-09 03:00:23', 1, NULL, NULL, '2026-02-06 02:50:56', '2026-02-09 03:00:23');
+INSERT INTO `package` VALUES (17, 'DBG1770346255956103', '韩立', '19826151596', '测试122211_1770346255718', '谭浩毅', '19826151596', '测试1_1770346255718', '服装', 1.00, '30x20x10', '已入库', 1, 1, 1, '1-1-MVFB6K', 1, '2026-02-09 03:00:23', 1, NULL, NULL, '2026-02-06 02:50:56', '2026-02-09 03:00:23');
+INSERT INTO `package` VALUES (18, 'DBG1770346256024238', '韩立', '19826151596', '测试122211_1770346255970', '谭浩毅', '19826151596', '测试1_1770346255970', '服装', 1.00, '30x20x10', '已入库', 1, 1, 1, '1-1-S6ZVGV', 1, '2026-02-09 03:00:24', 1, NULL, NULL, '2026-02-06 02:50:56', '2026-02-09 03:00:24');
+INSERT INTO `package` VALUES (19, 'DBG1770346256273468', '韩立', '19826151596', '测试122211_1770346256039', '谭浩毅', '19826151596', '测试1_1770346256039', '服装', 1.00, '30x20x10', '已入库', 1, 1, 1, '1-1-H8HS5U', 1, '2026-02-09 03:00:25', 1, NULL, NULL, '2026-02-06 02:50:56', '2026-02-09 03:00:25');
+INSERT INTO `package` VALUES (20, 'DBG1770346256340302', '韩立', '19826151596', '测试122211_1770346256288', '谭浩毅', '19826151596', '测试1_1770346256288', '服装', 1.00, '30x20x10', '已入库', 1, 1, 1, '1-1-SYTNEX', 1, '2026-02-09 03:00:25', 1, NULL, NULL, '2026-02-06 02:50:56', '2026-02-09 03:00:25');
+INSERT INTO `package` VALUES (21, 'DBG1770348015722940', '韩立', '19826151596', '测试2026年2月6日11:20:03_1770348015399', '谭浩毅', '19826151596', '测试12026年2月6日11:20:07_1770348015399', '数码产品', 1.00, '30x20x10', '已入库', 1, 1, 1, '1-1-NB8ZZZ', 1, '2026-02-06 03:21:12', 1, NULL, NULL, '2026-02-06 03:20:16', '2026-02-06 03:21:12');
+INSERT INTO `package` VALUES (22, 'DBG1770348015957599', '韩立', '19826151596', '测试2026年2月6日11:20:03_1770348015789', '谭浩毅', '19826151596', '测试12026年2月6日11:20:07_1770348015789', '数码产品', 1.00, '30x20x10', '已取件', 1, 1, 1, '1-1-RMUZYE', 1, '2026-02-06 03:21:36', 1, NULL, NULL, '2026-02-06 03:20:16', '2026-02-09 02:38:22');
+INSERT INTO `package` VALUES (23, 'DBG1770348016093856', '韩立', '19826151596', '测试2026年2月6日11:20:03_1770348015969', '谭浩毅', '19826151596', '测试12026年2月6日11:20:07_1770348015969', '数码产品', 1.00, '30x20x10', '异常', NULL, NULL, NULL, NULL, NULL, NULL, 1, NULL, NULL, '2026-02-06 03:20:16', '2026-02-06 03:22:05');
+INSERT INTO `package` VALUES (24, 'DBG1770348016272964', '韩立', '19826151596', '测试2026年2月6日11:20:03_1770348016106', '谭浩毅', '19826151596', '测试12026年2月6日11:20:07_1770348016106', '数码产品', 1.00, '30x20x10', '已入库', 1, 1, 1, '1-1-XPKE5R', 1, '2026-02-06 03:22:17', 1, NULL, NULL, '2026-02-06 03:20:16', '2026-02-06 03:22:17');
+INSERT INTO `package` VALUES (25, 'DBG1770348016411633', '韩立', '19826151596', '测试2026年2月6日11:20:03_1770348016284', '谭浩毅', '19826151596', '测试12026年2月6日11:20:07_1770348016284', '数码产品', 1.00, '30x20x10', '已入库', 1, 1, 1, '1-1-76QLGR', 1, '2026-02-06 03:22:17', 1, NULL, NULL, '2026-02-06 03:20:16', '2026-02-06 03:22:17');
 
 -- ----------------------------
 -- Table structure for package_entry
@@ -246,7 +276,7 @@ CREATE TABLE `package_entry`  (
   CONSTRAINT `package_entry_ibfk_2` FOREIGN KEY (`employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_entry_ibfk_3` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `package_entry_ibfk_4` FOREIGN KEY (`shelf_id`) REFERENCES `shelf` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '入库记录表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 21 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '入库记录表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of package_entry
@@ -261,6 +291,17 @@ INSERT INTO `package_entry` VALUES (7, 9, 2, 1, 1, NULL, '扫码录入', '2026-0
 INSERT INTO `package_entry` VALUES (8, 10, 2, 1, 1, 1, '扫码录入', '2026-01-29 06:08:16', '核验成功后自动入库', '2026-01-29 06:08:16');
 INSERT INTO `package_entry` VALUES (9, 11, 2, 1, 1, 1, '扫码录入', '2026-01-29 06:37:44', '核验成功后自动入库', '2026-01-29 06:37:44');
 INSERT INTO `package_entry` VALUES (10, 12, 2, 1, 1, 1, '扫码录入', '2026-01-30 05:00:39', '核验成功后自动入库', '2026-01-30 05:00:39');
+INSERT INTO `package_entry` VALUES (11, 13, 1, 1, 1, 1, '扫码录入', '2026-02-05 14:07:37', '正式包裹入库（待入库 -> 已入库）', '2026-02-05 14:07:37');
+INSERT INTO `package_entry` VALUES (12, 21, 1, 1, 1, 1, '扫码录入', '2026-02-06 03:21:12', '正式包裹入库（待入库 -> 已入库）', '2026-02-06 03:21:12');
+INSERT INTO `package_entry` VALUES (13, 22, 1, 1, 1, 1, '扫码录入', '2026-02-06 03:21:36', '正式包裹入库（待入库 -> 已入库）', '2026-02-06 03:21:36');
+INSERT INTO `package_entry` VALUES (14, 24, 1, 1, 1, 1, '扫码录入', '2026-02-06 03:22:17', '正式包裹入库（待入库 -> 已入库）', '2026-02-06 03:22:17');
+INSERT INTO `package_entry` VALUES (15, 25, 1, 1, 1, 1, '扫码录入', '2026-02-06 03:22:17', '正式包裹入库（待入库 -> 已入库）', '2026-02-06 03:22:17');
+INSERT INTO `package_entry` VALUES (16, 16, 1, 1, 1, 1, '扫码录入', '2026-02-09 03:00:23', '正式包裹入库（待入库 -> 已入库）', '2026-02-09 03:00:23');
+INSERT INTO `package_entry` VALUES (17, 17, 1, 1, 1, 1, '扫码录入', '2026-02-09 03:00:23', '正式包裹入库（待入库 -> 已入库）', '2026-02-09 03:00:23');
+INSERT INTO `package_entry` VALUES (18, 18, 1, 1, 1, 1, '扫码录入', '2026-02-09 03:00:24', '正式包裹入库（待入库 -> 已入库）', '2026-02-09 03:00:24');
+INSERT INTO `package_entry` VALUES (19, 19, 1, 1, 1, 1, '扫码录入', '2026-02-09 03:00:25', '正式包裹入库（待入库 -> 已入库）', '2026-02-09 03:00:25');
+INSERT INTO `package_entry` VALUES (20, 20, 1, 1, 1, 1, '扫码录入', '2026-02-09 03:00:25', '正式包裹入库（待入库 -> 已入库）', '2026-02-09 03:00:25');
+INSERT INTO `package_entry` VALUES (21, 15, 1, 1, 1, 1, '扫码录入', '2026-02-09 03:00:25', '正式包裹入库（待入库 -> 已入库）', '2026-02-09 03:00:25');
 
 -- ----------------------------
 -- Table structure for package_outbound
@@ -269,8 +310,8 @@ DROP TABLE IF EXISTS `package_outbound`;
 CREATE TABLE `package_outbound`  (
   `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '出库记录ID',
   `package_id` bigint(0) NOT NULL COMMENT '包裹ID',
-  `outbound_employee_id` bigint(0) NOT NULL COMMENT '出库员工ID（员工B）',
-  `delivery_employee_id` bigint(0) NOT NULL COMMENT '派送员工ID（员工A）',
+  `outbound_employee_id` bigint(0) NOT NULL COMMENT '出库员工ID',
+  `delivery_employee_id` bigint(0) NOT NULL COMMENT '派送员工ID',
   `warehouse_id` bigint(0) NULL DEFAULT NULL COMMENT '仓库ID',
   `outbound_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP COMMENT '出库时间',
   `remarks` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '备注',
