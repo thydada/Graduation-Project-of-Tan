@@ -10,11 +10,6 @@ import lombok.AllArgsConstructor;
 public class ExceptionReportRequest {
 
     /**
-     * 临时包裹ID
-     */
-    private Long tempPackageId;
-
-    /**
      * 异常类型
      */
     private String exceptionType;

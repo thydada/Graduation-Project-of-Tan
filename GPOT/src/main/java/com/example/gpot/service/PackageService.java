@@ -6,16 +6,17 @@ import com.example.gpot.entity.ExceptionPackage;
 import com.example.gpot.entity.Package;
 import com.example.gpot.entity.PackageEntry;
 import com.example.gpot.entity.PackageOutbound;
-import com.example.gpot.entity.PackageTemp;
 import com.example.gpot.repository.AdminRepository;
 import com.example.gpot.repository.EmployeeRepository;
 import com.example.gpot.repository.ExceptionPackageRepository;
 import com.example.gpot.repository.PackageEntryRepository;
 import com.example.gpot.repository.PackageOutboundRepository;
 import com.example.gpot.repository.PackageRepository;
-import com.example.gpot.repository.PackageTempRepository;
 import com.example.gpot.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,9 +37,6 @@ public class PackageService {
 
     @Autowired
     private PackageRepository packageRepository;
-
-    @Autowired
-    private PackageTempRepository packageTempRepository;
 
     @Autowired
     private PackageEntryRepository packageEntryRepository;
@@ -109,90 +107,6 @@ public class PackageService {
         return packageRepository.findByReceiverPhoneAndStatusOrderByEntryTimeDesc(receiverPhone, "已入库");
     }
 
-    /**
-     * 根据用户ID查询临时包裹列表
-     */
-    public List<PackageTemp> getTempPackagesByUserId(Long userId) {
-        return packageTempRepository.findByUserIdOrderByCreateTimeDesc(userId);
-    }
-
-    /**
-     * 根据快递单号查询临时包裹
-     */
-    public Optional<PackageTemp> getTempPackageByTrackingNumber(String trackingNumber) {
-        return packageTempRepository.findByTrackingNumber(trackingNumber);
-    }
-
-    // ======================== 临时包裹转正式包裹 ========================
-
-    /**
-     * 将临时包裹转移到正式表（当前仅依赖核验成功）
-     */
-    public Package transferTempPackageToFormal(Long tempPackageId) {
-        Optional<PackageTemp> tempPackageOpt = packageTempRepository.findById(tempPackageId);
-        if (!tempPackageOpt.isPresent()) {
-            throw new RuntimeException("临时包裹不存在");
-        }
-
-        PackageTemp tempPackage = tempPackageOpt.get();
-
-        // 入库流程改为仅一次核验：只检查核验状态
-        if (tempPackage.getVerificationSuccess() != 1) {
-            throw new RuntimeException("包裹未完成核验，无法转移到正式表");
-        }
-
-        // 创建正式包裹
-        Package formalPackage = new Package();
-        formalPackage.setTrackingNumber(tempPackage.getTrackingNumber());
-        formalPackage.setSenderName(tempPackage.getSenderName());
-        formalPackage.setSenderPhone(tempPackage.getSenderPhone());
-        formalPackage.setSenderAddress(tempPackage.getSenderAddress());
-        formalPackage.setReceiverName(tempPackage.getReceiverName());
-        formalPackage.setReceiverPhone(tempPackage.getReceiverPhone());
-        formalPackage.setReceiverAddress(tempPackage.getReceiverAddress());
-        formalPackage.setPackageType(tempPackage.getPackageType());
-        formalPackage.setWeight(tempPackage.getWeight());
-        formalPackage.setSize(tempPackage.getSize());
-        formalPackage.setStatus(tempPackage.getStatus());
-        formalPackage.setWarehouseId(tempPackage.getWarehouseId());
-        formalPackage.setShelfId(tempPackage.getShelfId());
-        formalPackage.setEntryEmployeeId(tempPackage.getEntryEmployeeId());
-        formalPackage.setEntryTime(tempPackage.getEntryTime());
-        formalPackage.setUserId(tempPackage.getUserId());
-        formalPackage.setPickupDeadline(tempPackage.getPickupDeadline());
-
-        // 保存到正式表
-        Package savedFormalPackage = packageRepository.save(formalPackage);
-
-        // 删除临时表中的记录
-        packageTempRepository.delete(tempPackage);
-
-        return savedFormalPackage;
-    }
-
-    /**
-     * 更新临时包裹的取件状态
-     */
-    public void updatePickupSuccess(Long tempPackageId, boolean success) {
-        Optional<PackageTemp> tempPackageOpt = packageTempRepository.findById(tempPackageId);
-        if (tempPackageOpt.isPresent()) {
-            PackageTemp tempPackage = tempPackageOpt.get();
-            tempPackage.setPickupSuccess(success ? 1 : 0);
-            packageTempRepository.save(tempPackage);
-        }
-    }
-
-    /**
-     * 更新临时包裹的核验状态
-     */
-    public void updateVerificationSuccess(Long tempPackageId, boolean success) {
-        Optional<PackageTemp> tempPackageOpt = packageTempRepository.findById(tempPackageId);
-        if (tempPackageOpt.isPresent()) {
-            PackageTemp tempPackage = tempPackageOpt.get();
-            tempPackage.setVerificationSuccess(success ? 1 : 0);
-            packageTempRepository.save(tempPackage);
-        }
-    }
 
     // ======================== 货架分配相关 ========================
 
@@ -299,153 +213,155 @@ public class PackageService {
         return bestLayer;
     }
 
-    // ======================== 入库核验 ========================
-
-    /**
-     * 核验成功后转移包裹到正式表并创建入库记录
-     * @param tempPackageId 临时包裹ID
-     * @param employeeId 操作员工ID
-     * @param warehouseId 仓库ID（可为空，如果为空则使用默认仓库1）
-     * @param shelfId 货架ID（可为空，如果为空则自动分配）
-     * @param shelfLayer 货架层数（可为空，如果为空则自动分配）
-     * @return 核验结果信息
-     */
-    @Transactional
-    public Map<String, Object> verificationAndTransferPackage(Long tempPackageId, Long employeeId, Long warehouseId, Long shelfId, Integer shelfLayer) {
-        // 1. 查询临时包裹
-        Optional<PackageTemp> tempPackageOpt = packageTempRepository.findById(tempPackageId);
-        if (!tempPackageOpt.isPresent()) {
-            throw new RuntimeException("临时包裹不存在");
-        }
-
-        PackageTemp tempPackage = tempPackageOpt.get();
-
-        // 2. 设置仓库、货架和层数
-        if (warehouseId == null) {
-            warehouseId = 1L; // 默认仓库
-        }
-        
-        // 如果未指定货架ID，则自动分配
-        if (shelfId == null) {
-            Map<String, Object> allocation = allocateShelfAndLayer(
-                tempPackage.getSize(), 
-                tempPackage.getWeight(), 
-                warehouseId
-            );
-            shelfId = ((Number) allocation.get("shelfId")).longValue();
-            // 如果自动分配了货架但未指定层数，自动选择层数
-            if (shelfLayer == null) {
-                shelfLayer = (Integer) allocation.get("shelfLayer");
-            }
-        } else {
-            // 如果指定了货架但没有指定层数，自动选择层数
-            if (shelfLayer == null) {
-                shelfLayer = findAvailableLayer(shelfId, warehouseId, 
-                    shelfId == 4L ? 5 : 10); // 货架4每层5容量，其他每层10容量
-            }
-        }
-
-        String pickupCode = generatePickupCode(shelfId, shelfLayer);
-
-        // 3. 更新核验状态为成功（入库流程仅一次核验）
-        tempPackage.setVerificationSuccess(1);
-        tempPackage.setStatus("审核完成");
-        tempPackage.setUpdateTime(java.time.LocalDateTime.now());
-
-        // 4. 创建正式包裹并保存到package表
-        Package formalPackage = new Package();
-        formalPackage.setTrackingNumber(tempPackage.getTrackingNumber());
-        formalPackage.setSenderName(tempPackage.getSenderName());
-        formalPackage.setSenderPhone(tempPackage.getSenderPhone());
-        formalPackage.setSenderAddress(tempPackage.getSenderAddress());
-        formalPackage.setReceiverName(tempPackage.getReceiverName());
-        formalPackage.setReceiverPhone(tempPackage.getReceiverPhone());
-        formalPackage.setReceiverAddress(tempPackage.getReceiverAddress());
-        formalPackage.setPackageType(tempPackage.getPackageType());
-        formalPackage.setWeight(tempPackage.getWeight());
-        formalPackage.setSize(tempPackage.getSize());
-        formalPackage.setStatus("已入库");
-        formalPackage.setWarehouseId(warehouseId);
-        formalPackage.setShelfId(shelfId);
-        formalPackage.setShelfLayer(shelfLayer);
-        formalPackage.setPickupCode(pickupCode);
-        formalPackage.setEntryEmployeeId(employeeId);
-        formalPackage.setEntryTime(java.time.LocalDateTime.now());
-        formalPackage.setUserId(tempPackage.getUserId());
-        formalPackage.setPickupDeadline(tempPackage.getPickupDeadline());
-        formalPackage.setCreateTime(java.time.LocalDateTime.now());
-
-        Package savedPackage = packageRepository.save(formalPackage);
-
-        // 5. 创建入库记录到 package_entry 表
-        PackageEntry entryRecord = new PackageEntry(
-            savedPackage.getId(),
-            employeeId,
-            warehouseId,
-            shelfId,
-            shelfLayer,
-            "扫码录入",
-            "核验成功后自动入库"
-        );
-        packageEntryRepository.save(entryRecord);
-
-        // 6. 从临时表删除该条记录
-        packageTempRepository.delete(tempPackage);
-
-        // 7. 发送取件提醒消息（如果用户ID存在）
-        if (savedPackage.getUserId() != null) {
-            try {
-                messageService.sendPickupNotification(
-                    savedPackage.getUserId(),
-                    savedPackage.getTrackingNumber(),
-                    pickupCode,
-                    shelfId,
-                    shelfLayer,
-                    warehouseId,
-                    "employee",
-                    employeeId
-                );
-            } catch (Exception e) {
-                // 消息发送失败不影响入库流程
-                System.err.println("发送取件提醒消息失败: " + e.getMessage());
-            }
-        }
-
-        // 8. 返回结果
-        Map<String, Object> result = new java.util.HashMap<>();
-        result.put("packageId", savedPackage.getId());
-        result.put("trackingNumber", savedPackage.getTrackingNumber());
-        result.put("status", savedPackage.getStatus());
-        result.put("warehouseId", warehouseId);
-        result.put("shelfId", shelfId);
-        result.put("shelfLayer", shelfLayer);
-        result.put("pickupCode", pickupCode);
-        result.put("entryTime", savedPackage.getEntryTime());
-        result.put("message", "核验成功，包裹已入库");
-
-        return result;
-    }
 
     // ======================== 用户包裹总览 ========================
 
     /**
-     * 获取用户的所有包裹信息（临时包裹、正式包裹、异常包裹）
+     * 获取用户的所有包裹信息（正式包裹、异常包裹）
      */
     public Map<String, Object> getUserAllPackages(Long userId) {
-        // 1. 获取用户的临时包裹
-        List<PackageTemp> tempPackages = getTempPackagesByUserId(userId);
-
-        // 2. 获取用户的正式包裹
+        // 1. 获取用户的正式包裹
         List<Package> formalPackages = getPackagesByUserId(userId);
 
-        // 3. 直接通过用户ID获取用户的异常包裹
+        // 2. 直接通过用户ID获取用户的异常包裹
         List<ExceptionPackage> exceptionPackages = exceptionPackageRepository.findByUserIdOrderByReportTimeDesc(userId);
 
         // 构建返回结果
         Map<String, Object> result = new java.util.HashMap<>();
-        result.put("tempPackages", tempPackages);
         result.put("formalPackages", formalPackages);
         result.put("exceptionPackages", exceptionPackages);
+
+        return result;
+    }
+
+    /**
+     * 分页获取用户的所有包裹信息（正式包裹、异常包裹），支持查询
+     * @param userId 用户ID
+     * @param keyword 查询关键词（快递单号、收件人姓名、收件人电话）
+     * @param page 页码（从0开始）
+     * @param size 每页大小
+     * @param type 包裹类型：all-全部，formal-正式包裹，exception-异常包裹
+     * @return 分页结果
+     */
+    public Map<String, Object> getUserAllPackagesWithPagination(Long userId, String keyword, int page, int size, String type) {
+        // 处理空字符串关键词
+        String searchKeyword = (keyword != null && keyword.trim().isEmpty()) ? null : keyword;
+        
+        Pageable pageable = PageRequest.of(page, size);
+        Map<String, Object> result = new HashMap<>();
+
+        if ("formal".equals(type)) {
+            // 只查询正式包裹
+            Page<Package> formalPage = packageRepository.findByUserIdWithKeyword(userId, searchKeyword, pageable);
+            result.put("formalPackages", formalPage.getContent());
+            result.put("exceptionPackages", new ArrayList<>());
+            result.put("totalElements", formalPage.getTotalElements());
+            result.put("totalPages", formalPage.getTotalPages());
+            result.put("currentPage", page);
+            result.put("pageSize", size);
+        } else if ("exception".equals(type)) {
+            // 只查询异常包裹
+            Page<ExceptionPackage> exceptionPage = exceptionPackageRepository.findByUserIdWithKeyword(userId, searchKeyword, pageable);
+            result.put("formalPackages", new ArrayList<>());
+            result.put("exceptionPackages", exceptionPage.getContent());
+            result.put("totalElements", exceptionPage.getTotalElements());
+            result.put("totalPages", exceptionPage.getTotalPages());
+            result.put("currentPage", page);
+            result.put("pageSize", size);
+        } else {
+            // 查询全部：需要合并正式包裹和异常包裹
+            // 由于需要合并两种类型，我们需要分别查询然后合并
+            // 为了简化，我们分别查询所有数据，然后在内存中分页
+            List<Package> allFormalPackages = packageRepository.findByUserIdOrderByCreateTimeDesc(userId);
+            List<ExceptionPackage> allExceptionPackages = exceptionPackageRepository.findByUserIdOrderByReportTimeDesc(userId);
+            
+            // 应用关键词过滤
+            if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
+                String lowerKeyword = searchKeyword.toLowerCase();
+                allFormalPackages = allFormalPackages.stream()
+                    .filter(p -> p.getTrackingNumber().toLowerCase().contains(lowerKeyword) ||
+                                (p.getReceiverName() != null && p.getReceiverName().toLowerCase().contains(lowerKeyword)) ||
+                                (p.getReceiverPhone() != null && p.getReceiverPhone().contains(searchKeyword)))
+                    .collect(Collectors.toList());
+                allExceptionPackages = allExceptionPackages.stream()
+                    .filter(e -> e.getTrackingNumber().toLowerCase().contains(lowerKeyword))
+                    .collect(Collectors.toList());
+            }
+            
+            // 合并并排序
+            List<Map<String, Object>> allPackages = new ArrayList<>();
+            for (Package pkg : allFormalPackages) {
+                Map<String, Object> pkgMap = new HashMap<>();
+                pkgMap.put("id", pkg.getId());
+                pkgMap.put("trackingNumber", pkg.getTrackingNumber());
+                pkgMap.put("receiverName", pkg.getReceiverName());
+                pkgMap.put("receiverPhone", pkg.getReceiverPhone());
+                pkgMap.put("receiverAddress", pkg.getReceiverAddress());
+                pkgMap.put("packageType", pkg.getPackageType());
+                pkgMap.put("weight", pkg.getWeight());
+                pkgMap.put("status", pkg.getStatus());
+                pkgMap.put("createTime", pkg.getCreateTime());
+                pkgMap.put("source", "formal");
+                allPackages.add(pkgMap);
+            }
+            for (ExceptionPackage exPkg : allExceptionPackages) {
+                Map<String, Object> pkgMap = new HashMap<>();
+                pkgMap.put("id", exPkg.getId());
+                pkgMap.put("trackingNumber", exPkg.getTrackingNumber());
+                pkgMap.put("receiverName", "-");
+                pkgMap.put("receiverPhone", "-");
+                pkgMap.put("receiverAddress", "-");
+                pkgMap.put("packageType", "-");
+                pkgMap.put("weight", "-");
+                pkgMap.put("status", "异常：" + (exPkg.getExceptionType() != null ? exPkg.getExceptionType() : "未知"));
+                pkgMap.put("createTime", exPkg.getReportTime());
+                pkgMap.put("reportTime", exPkg.getReportTime());
+                pkgMap.put("exceptionType", exPkg.getExceptionType());
+                pkgMap.put("exceptionReason", exPkg.getExceptionReason());
+                pkgMap.put("source", "exception");
+                allPackages.add(pkgMap);
+            }
+            
+            // 按时间倒序排序
+            allPackages.sort((a, b) -> {
+                LocalDateTime timeA = (LocalDateTime) (a.get("createTime") != null ? a.get("createTime") : a.get("reportTime"));
+                LocalDateTime timeB = (LocalDateTime) (b.get("createTime") != null ? b.get("createTime") : b.get("reportTime"));
+                if (timeA == null && timeB == null) return 0;
+                if (timeA == null) return 1;
+                if (timeB == null) return -1;
+                return timeB.compareTo(timeA);
+            });
+            
+            // 内存分页
+            int total = allPackages.size();
+            int start = page * size;
+            int end = Math.min(start + size, total);
+            List<Map<String, Object>> pagedPackages = start < total ? allPackages.subList(start, end) : new ArrayList<>();
+            
+            // 分离正式包裹和异常包裹
+            List<Package> formalPackages = new ArrayList<>();
+            List<ExceptionPackage> exceptionPackages = new ArrayList<>();
+            for (Map<String, Object> pkgMap : pagedPackages) {
+                if ("formal".equals(pkgMap.get("source"))) {
+                    // 从原始列表中查找对应的Package对象
+                    Long pkgId = ((Number) pkgMap.get("id")).longValue();
+                    Optional<Package> pkgOpt = packageRepository.findById(pkgId);
+                    pkgOpt.ifPresent(formalPackages::add);
+                } else {
+                    // 从原始列表中查找对应的ExceptionPackage对象
+                    Long exPkgId = ((Number) pkgMap.get("id")).longValue();
+                    Optional<ExceptionPackage> exPkgOpt = exceptionPackageRepository.findById(exPkgId);
+                    exPkgOpt.ifPresent(exceptionPackages::add);
+                }
+            }
+            
+            result.put("formalPackages", formalPackages);
+            result.put("exceptionPackages", exceptionPackages);
+            result.put("totalElements", (long) total);
+            result.put("totalPages", (int) Math.ceil((double) total / size));
+            result.put("currentPage", page);
+            result.put("pageSize", size);
+        }
 
         return result;
     }
@@ -757,7 +673,6 @@ public class PackageService {
 
         ExceptionPackage exceptionPkg = new ExceptionPackage();
         exceptionPkg.setPackageId(packageId);
-        exceptionPkg.setTempPackageId(0L);
         exceptionPkg.setTrackingNumber(pkg.getTrackingNumber());
         exceptionPkg.setExceptionType(exceptionType);
         exceptionPkg.setExceptionReason(exceptionReason);
@@ -798,7 +713,6 @@ public class PackageService {
         long delivered = packageRepository.findByStatusOrderByCreateTimeDesc("已取件").size();
         long exception = packageRepository.findByStatusOrderByCreateTimeDesc("异常").size();
 
-        long totalTempPackages = packageTempRepository.count();
         long totalExceptionPackages = exceptionPackageRepository.count();
         long pendingException = exceptionPackageRepository.findByHandleStatusOrderByReportTimeDesc("待处理").size();
         long processingException = exceptionPackageRepository.findByHandleStatusOrderByReportTimeDesc("处理中").size();
@@ -817,7 +731,6 @@ public class PackageService {
         stats.put("inTransit", inTransit);
         stats.put("delivered", delivered);
         stats.put("exception", exception);
-        stats.put("totalTempPackages", totalTempPackages);
         stats.put("totalExceptionPackages", totalExceptionPackages);
         stats.put("pendingException", pendingException);
         stats.put("processingException", processingException);

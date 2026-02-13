@@ -114,13 +114,11 @@ CREATE TABLE `exception_package`  (
   `report_employee_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '报告员工姓名',
   `source` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '异常来源（pickup:取件异常, verification:核验异常）',
   `tracking_number` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '快递单号',
-  `temp_package_id` bigint(0) NOT NULL COMMENT '临时包裹ID',
   `user_id` bigint(0) NULL DEFAULT NULL COMMENT '所属用户ID',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `package_id`(`package_id`) USING BTREE,
   INDEX `report_employee_id`(`report_employee_id`) USING BTREE,
   INDEX `handle_employee_id`(`handle_employee_id`) USING BTREE,
-  INDEX `temp_package_id`(`temp_package_id`) USING BTREE,
   INDEX `user_id`(`user_id`) USING BTREE,
   INDEX `warehouse_id`(`warehouse_id`) USING BTREE,
   CONSTRAINT `exception_package_ibfk_1` FOREIGN KEY (`package_id`) REFERENCES `package` (`id`) ON DELETE SET NULL ON UPDATE SET NULL,
@@ -332,45 +330,6 @@ CREATE TABLE `package_outbound`  (
 -- ----------------------------
 INSERT INTO `package_outbound` VALUES (1, 5, 2, 1, NULL, '2026-01-29 03:31:03', NULL, NULL);
 
--- ----------------------------
--- Table structure for package_temp
--- ----------------------------
-DROP TABLE IF EXISTS `package_temp`;
-CREATE TABLE `package_temp`  (
-  `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '临时包裹ID',
-  `tracking_number` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '快递单号',
-  `sender_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '寄件人姓名',
-  `sender_phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '寄件人电话',
-  `sender_address` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '寄件人地址',
-  `receiver_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '收件人姓名',
-  `receiver_phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '收件人电话',
-  `receiver_address` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '收件人地址',
-  `package_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '包裹类型',
-  `weight` decimal(10, 2) NULL DEFAULT NULL COMMENT '重量(kg)',
-  `size` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '尺寸',
-  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT '待入库' COMMENT '状态(待入库、入库中、已入库、待取件、已取件、异常)',
-  `warehouse_id` bigint(0) NULL DEFAULT NULL COMMENT '仓库ID',
-  `shelf_id` bigint(0) NULL DEFAULT NULL COMMENT '货架ID',
-  `shelf_layer` int(0) NULL DEFAULT NULL COMMENT '货架层数(1-4)',
-  `entry_employee_id` bigint(0) NULL DEFAULT NULL COMMENT '入库员工ID',
-  `entry_time` datetime(0) NULL DEFAULT NULL COMMENT '入库时间',
-  `user_id` bigint(0) NULL DEFAULT NULL COMMENT '所属用户ID',
-  `pickup_deadline` datetime(0) NULL DEFAULT NULL COMMENT '取件截止时间',
-  `pickup_success` tinyint(0) NULL DEFAULT 0,
-  `verification_success` tinyint(0) NULL DEFAULT 0,
-  `create_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP(0) COMMENT '更新时间',
-  PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE INDEX `tracking_number`(`tracking_number`) USING BTREE,
-  INDEX `warehouse_id`(`warehouse_id`) USING BTREE,
-  INDEX `shelf_id`(`shelf_id`) USING BTREE,
-  INDEX `entry_employee_id`(`entry_employee_id`) USING BTREE,
-  INDEX `user_id`(`user_id`) USING BTREE,
-  CONSTRAINT `package_temp_ibfk_1` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouse` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `package_temp_ibfk_2` FOREIGN KEY (`shelf_id`) REFERENCES `shelf` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `package_temp_ibfk_3` FOREIGN KEY (`entry_employee_id`) REFERENCES `employee` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `package_temp_ibfk_4` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 17 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '临时包裹表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for shelf

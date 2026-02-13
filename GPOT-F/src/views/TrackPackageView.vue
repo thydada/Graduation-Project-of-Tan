@@ -8,13 +8,6 @@
 
     <!-- 统计信息卡片 -->
     <div class="stats-container">
-      <div class="stat-card pending">
-        <div class="stat-icon">📦</div>
-        <div class="stat-info">
-          <span class="stat-value">{{ tempPackages.length }}</span>
-          <span class="stat-label">待处理包裹</span>
-        </div>
-      </div>
       <div class="stat-card completed">
         <div class="stat-icon">✅</div>
         <div class="stat-info">
@@ -57,11 +50,6 @@
           :class="{ active: activeTab === 'all' }"
           @click="activeTab = 'all'"
         >全部包裹</button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'pending' }"
-          @click="activeTab = 'pending'"
-        >待处理</button>
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'completed' }"
@@ -129,62 +117,6 @@
         </div>
       </div>
 
-      <!-- 待处理包裹 -->
-      <div v-if="activeTab === 'pending'" class="tab-content">
-        <div v-if="tempPackages.length === 0" class="empty-container">
-          <div class="empty-icon">✅</div>
-          <p class="empty-text">暂无待处理的包裹</p>
-        </div>
-        <div v-else class="package-cards">
-          <div
-            v-for="pkg in tempPackages"
-            :key="pkg.trackingNumber"
-            class="package-card temp"
-            @click="showPackageDetail(pkg)"
-          >
-            <div class="card-header">
-              <span class="tracking-number">{{ pkg.trackingNumber }}</span>
-              <span class="status-tag pending">{{ pkg.status }}</span>
-            </div>
-            <div class="card-body">
-              <div class="route-info">
-                <div class="route-item">
-                  <span class="route-label">寄件人</span>
-                  <span class="route-value">{{ pkg.senderName }}</span>
-                </div>
-                <div class="route-arrow">→</div>
-                <div class="route-item">
-                  <span class="route-label">收件人</span>
-                  <span class="route-value">{{ pkg.receiverName }}</span>
-                </div>
-              </div>
-              <div class="package-info">
-                <span class="info-item">📦 {{ pkg.packageType }}</span>
-                <span class="info-item">⚖️ {{ pkg.weight }}kg</span>
-              </div>
-              <div class="progress-section">
-                <div class="progress-step" :class="{ active: true, completed: pkg.pickupSuccess === 1 }">
-                  <span class="step-icon">📝</span>
-                  <span class="step-text">已提交</span>
-                </div>
-                <div class="progress-line" :class="{ active: pkg.pickupSuccess === 1 }"></div>
-                <div class="progress-step" :class="{ active: pkg.pickupSuccess === 1, completed: pkg.verificationSuccess === 1 }">
-                  <span class="step-icon">🏪</span>
-                  <span class="step-text">取件{{ pkg.pickupSuccess === 1 ? '完成' : '中' }}</span>
-                </div>
-                <div class="progress-line" :class="{ active: pkg.verificationSuccess === 1 }"></div>
-                <div class="progress-step" :class="{ active: pkg.verificationSuccess === 1 }">
-                  <span class="step-icon">✓</span>
-                  <span class="step-text">核验{{ pkg.verificationSuccess === 1 ? '完成' : '中' }}</span>
-                </div>
-              </div>
-            </div>
-            <div class="card-footer">
-              <span class="time-value">创建于 {{ formatTime(pkg.createTime) }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- 已完成包裹 -->
       <div v-if="activeTab === 'completed'" class="tab-content">
@@ -469,7 +401,6 @@ export default {
     const loading = ref(true)
     const activeTab = ref('all')
     const searchTrackingNumber = ref('')
-    const tempPackages = ref([])
     const formalPackages = ref([])
     const exceptionPackages = ref([])
     const detailDialogVisible = ref(false)
@@ -480,10 +411,6 @@ export default {
 
     // 计算属性
     const allPackages = computed(() => {
-      const temp = tempPackages.value.map(pkg => ({
-        ...pkg,
-        source: 'temp'
-      }))
       const formal = formalPackages.value.map(pkg => ({
         ...pkg,
         source: 'formal'
@@ -497,7 +424,7 @@ export default {
         weight: '未知',
         size: '未知'
       }))
-      return [...temp, ...formal, ...exceptions].sort((a, b) => {
+      return [...formal, ...exceptions].sort((a, b) => {
         const timeA = a.createTime || a.reportTime
         const timeB = b.createTime || b.reportTime
         return new Date(timeB) - new Date(timeA)
@@ -505,7 +432,7 @@ export default {
     })
 
     const totalCount = computed(() => {
-      return tempPackages.value.length + formalPackages.value.length
+      return formalPackages.value.length
     })
 
     // 获取用户所有包裹
@@ -518,10 +445,9 @@ export default {
           return
         }
 
-        const response = await apiService.getAllUserPackages(user.id)
-        if (response.data && response.data.code === 200) {
+        const response = await apiService.getUserAllPackages(user.id)
+        if (response.data && response.data.success) {
           const data = response.data.data
-          tempPackages.value = data.tempPackages || []
           formalPackages.value = data.formalPackages || []
           exceptionPackages.value = data.exceptionPackages || []
         }
@@ -587,9 +513,6 @@ export default {
       if (pkg.source === 'exception') {
         return 'exception'
       }
-      if (pkg.source === 'temp') {
-        return 'pending'
-      }
       const statusMap = {
         '待入库': 'pending',
         '已入库': 'completed',
@@ -611,7 +534,6 @@ export default {
     // 获取来源文本
     const getSourceText = (source) => {
       const sourceMap = {
-        'temp': '待处理',
         'formal': '已完成',
         'exception': '异常件'
       }
@@ -636,7 +558,6 @@ export default {
       loading,
       activeTab,
       searchTrackingNumber,
-      tempPackages,
       formalPackages,
       exceptionPackages,
       allPackages,

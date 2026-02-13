@@ -63,46 +63,25 @@ const apiService = {
     return api.post(`/packages/pickup/${trackingNumber}`)
   },
 
-  // 查询待核验的临时快递
-  async getVerificationPendingPackages() {
-    return api.get('/packages/temp/verification-pending')
-  },
-
-  // 核验快递
-  async verificationPackage(id, status, employeeId = 1, warehouseId = 1, shelfId = null, shelfLayer = null) {
-    const requestData = {
-      status,
-      employeeId,
-      warehouseId
-    }
-    if (shelfId !== null) {
-      requestData.shelfId = shelfId
-    }
-    if (shelfLayer !== null) {
-      requestData.shelfLayer = shelfLayer
-    }
-    return api.put(`/packages/temp/${id}/verification`, requestData)
-  },
-
-  // 报告异常件
-  async reportException(tempPackageId, exceptionType, exceptionReason, employeeId = 1, source = 'verification') {
-    return api.post('/packages/temp/report-exception', {
-      tempPackageId,
-      exceptionType,
-      exceptionReason,
-      employeeId,
-      source
-    })
-  },
 
   // 获取所有异常件列表
   async getAllExceptionPackages() {
     return api.get('/exception-packages')
   },
 
-  // 获取用户的所有包裹信息（临时包裹、正式包裹、异常包裹）
+  // 获取用户的所有包裹信息（正式包裹、异常包裹）
   async getUserAllPackages(userId) {
     return api.get(`/packages/user/${userId}/all`)
+  },
+
+  // 分页获取用户的所有包裹信息，支持查询
+  async getUserAllPackagesWithPagination(userId, keyword = '', page = 0, size = 10, type = 'all') {
+    const params = new URLSearchParams()
+    if (keyword) params.append('keyword', keyword)
+    params.append('page', page)
+    params.append('size', size)
+    params.append('type', type)
+    return api.get(`/packages/user/${userId}/all/paged?${params.toString()}`)
   },
 
   // 获取已入库的包裹列表（员工B出库使用）
@@ -173,6 +152,11 @@ const apiService = {
   // 获取近几日入库统计
   async getDailyEntryStatistics(days = 7) {
     return api.get(`/admin/daily-entry-statistics?days=${days}`)
+  },
+
+  // 导出运维监控数据到根目录
+  async exportAdminData(content) {
+    return api.post('/admin/export-data', { content })
   },
 
   // 获取用户消息列表

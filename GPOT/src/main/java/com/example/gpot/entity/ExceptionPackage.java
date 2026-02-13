@@ -21,9 +21,6 @@ public class ExceptionPackage {
     @Column(name = "package_id", comment = "包裹ID（正式包裹ID，可为空）")
     private Long packageId;
 
-    @Column(nullable = false, comment = "包裹ID（临时包裹ID）")
-    private Long tempPackageId;
-
     @Column(nullable = false, length = 50, comment = "快递单号")
     private String trackingNumber;
 
@@ -63,19 +60,4 @@ public class ExceptionPackage {
     @Column(columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
     private LocalDateTime updateTime;
 
-    // 自定义构造函数
-    public ExceptionPackage(Long tempPackageId, String trackingNumber, String exceptionType,
-                           String exceptionReason, Long reportEmployeeId, String reportEmployeeName, String source, Long userId) {
-        this.tempPackageId = tempPackageId;
-        this.trackingNumber = trackingNumber;
-        this.exceptionType = exceptionType;
-        this.exceptionReason = exceptionReason;
-        this.reportEmployeeId = reportEmployeeId;
-        this.reportEmployeeName = reportEmployeeName;
-        this.handleStatus = "待处理";
-        this.source = source;
-        this.userId = userId;
-        this.reportTime = LocalDateTime.now();
-        this.updateTime = LocalDateTime.now();
-    }
 }

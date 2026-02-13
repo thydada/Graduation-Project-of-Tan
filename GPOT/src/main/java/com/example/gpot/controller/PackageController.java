@@ -2,20 +2,21 @@ package com.example.gpot.controller;
 
 import com.example.gpot.dto.ApiResponse;
 import com.example.gpot.dto.DebugCreatePackageRequest;
-import com.example.gpot.dto.ExceptionReportRequest;
 import com.example.gpot.dto.FormalPackageExceptionRequest;
 import com.example.gpot.entity.ExceptionPackage;
 import com.example.gpot.entity.Package;
-import com.example.gpot.entity.PackageTemp;
-import com.example.gpot.repository.ExceptionPackageRepository;
-import com.example.gpot.repository.PackageTempRepository;
 import com.example.gpot.service.PackageService;
+import com.example.gpot.service.AiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.HashMap;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,10 +29,7 @@ public class PackageController {
     private PackageService packageService;
 
     @Autowired
-    private PackageTempRepository packageTempRepository;
-
-    @Autowired
-    private ExceptionPackageRepository exceptionPackageRepository;
+    private AiService aiService;
 
     /**
      * 根据用户ID查询包裹列表
@@ -79,159 +77,6 @@ public class PackageController {
         }
     }
 
-    /**
-     * 查询所有待核验的临时快递（verification_success=0）
-     */
-    @GetMapping("/packages/temp/verification-pending")
-    public ResponseEntity<ApiResponse<List<PackageTemp>>> getVerificationPendingPackages() {
-        try {
-            List<PackageTemp> packages = packageTempRepository.findByVerificationSuccess(0);
-            return ResponseEntity.ok(ApiResponse.success("查询成功", packages));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
-        }
-    }
-
-    /**
-     * 核验快递
-     * @param id 快递ID
-     * @param status 核验状态：1-核验成功，2-核验出错
-     * @param request 包含员工ID、仓库ID、货架ID的可选参数
-     */
-    @PutMapping("/packages/temp/{id}/verification")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> verificationPackage(
-            @PathVariable Long id,
-            @RequestBody Map<String, Object> request) {
-        try {
-            Integer status = (Integer) request.get("status");
-            if (status == null || (status != 1 && status != 2)) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("核验状态无效，必须为1（核验成功）或2（核验出错）"));
-            }
-
-            Optional<PackageTemp> optionalPackage = packageTempRepository.findById(id);
-            if (!optionalPackage.isPresent()) {
-                return ResponseEntity.notFound().build();
-            }
-
-            // 如果核验成功，需要执行完整的转移逻辑
-            if (status == 1) {
-                // 获取员工ID（默认1）
-                Long employeeId = 1L;
-                if (request.get("employeeId") != null) {
-                    employeeId = ((Number) request.get("employeeId")).longValue();
-                }
-
-                // 获取仓库ID（可为空；新入库包裹不再默认分配仓库/货架）
-                Long warehouseId = null;
-                if (request.get("warehouseId") != null) {
-                    warehouseId = ((Number) request.get("warehouseId")).longValue();
-                }
-
-                // 获取货架ID（可为空）
-                Long shelfId = null;
-                if (request.get("shelfId") != null) {
-                    shelfId = ((Number) request.get("shelfId")).longValue();
-                }
-
-                // 获取货架层数（可为空）
-                Integer shelfLayer = null;
-                if (request.get("shelfLayer") != null) {
-                    shelfLayer = ((Number) request.get("shelfLayer")).intValue();
-                }
-
-                // 执行核验成功后的转移逻辑
-                Map<String, Object> result = packageService.verificationAndTransferPackage(
-                    id, employeeId, warehouseId, shelfId, shelfLayer
-                );
-
-                return ResponseEntity.ok(ApiResponse.success("核验成功，包裹已入库", result));
-            } else {
-                // 核验失败，只更新状态
-                PackageTemp pkg = optionalPackage.get();
-                pkg.setVerificationSuccess(status);
-                pkg.setStatus("核验异常");
-                pkg.setUpdateTime(LocalDateTime.now());
-                packageTempRepository.save(pkg);
-
-                Map<String, Object> result = new HashMap<>();
-                result.put("id", pkg.getId());
-                result.put("trackingNumber", pkg.getTrackingNumber());
-                result.put("verificationSuccess", pkg.getVerificationSuccess());
-
-                return ResponseEntity.ok(ApiResponse.success("已标记为核验出错", result));
-            }
-
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(ApiResponse.error("核验过程中发生错误：" + e.getMessage()));
-        }
-    }
-
-    /**
-     * 报告异常件
-     * 将包裹写入异常件表，并从临时快递表中删除
-     */
-    @PostMapping("/packages/temp/report-exception")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> reportException(@RequestBody ExceptionReportRequest request) {
-        try {
-            // 验证输入
-            if (request.getTempPackageId() == null) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("包裹ID不能为空"));
-            }
-            if (request.getExceptionType() == null || request.getExceptionType().trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("异常类型不能为空"));
-            }
-            // 入库流程改为仅一次核验：只允许 verification 来源
-            if (request.getSource() == null || !"verification".equals(request.getSource())) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("异常来源无效，必须为 verification"));
-            }
-
-            // 查询临时包裹
-            Optional<PackageTemp> optionalPackage = packageTempRepository.findById(request.getTempPackageId());
-            if (!optionalPackage.isPresent()) {
-                return ResponseEntity.notFound().build();
-            }
-
-            PackageTemp pkg = optionalPackage.get();
-
-            // 获取员工ID（默认1）
-            Long employeeId = request.getEmployeeId() != null ? request.getEmployeeId() : 1L;
-
-            // 创建异常件记录，保存用户ID
-            ExceptionPackage exceptionPkg = new ExceptionPackage(
-                pkg.getId(),
-                pkg.getTrackingNumber(),
-                request.getExceptionType(),
-                request.getExceptionReason(),
-                employeeId,
-                "员工" + employeeId, // 简化处理，实际应该查询员工姓名
-                request.getSource(),
-                pkg.getUserId() // 保存用户ID
-            );
-            exceptionPackageRepository.save(exceptionPkg);
-
-            // 从临时表中删除该包裹
-            packageTempRepository.delete(pkg);
-
-            // 返回结果
-            Map<String, Object> result = new HashMap<>();
-            result.put("exceptionId", exceptionPkg.getId());
-            result.put("trackingNumber", exceptionPkg.getTrackingNumber());
-            result.put("exceptionType", exceptionPkg.getExceptionType());
-            result.put("handleStatus", exceptionPkg.getHandleStatus());
-
-            return ResponseEntity.ok(ApiResponse.success("已记录为核验异常件", result));
-
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(ApiResponse.error("报告异常件过程中发生错误：" + e.getMessage()));
-        }
-    }
 
     /**
      * Debug：直接往正式包裹表写入一条包裹记录
@@ -280,12 +125,36 @@ public class PackageController {
     }
 
     /**
-     * 获取用户的所有包裹信息（临时包裹、正式包裹、异常包裹）
+     * 获取用户的所有包裹信息（正式包裹、异常包裹）
      */
     @GetMapping("/packages/user/{userId}/all")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getUserAllPackages(@PathVariable Long userId) {
         try {
             Map<String, Object> result = packageService.getUserAllPackages(userId);
+            return ResponseEntity.ok(ApiResponse.success("查询成功", result));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("查询过程中发生错误：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 分页获取用户的所有包裹信息（正式包裹、异常包裹），支持查询
+     * @param userId 用户ID
+     * @param keyword 查询关键词（快递单号、收件人姓名、收件人电话）
+     * @param page 页码（从0开始，默认0）
+     * @param size 每页大小（默认10）
+     * @param type 包裹类型：all-全部，formal-正式包裹，exception-异常包裹（默认all）
+     */
+    @GetMapping("/packages/user/{userId}/all/paged")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getUserAllPackagesWithPagination(
+            @PathVariable Long userId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "all") String type) {
+        try {
+            Map<String, Object> result = packageService.getUserAllPackagesWithPagination(userId, keyword, page, size, type);
             return ResponseEntity.ok(ApiResponse.success("查询成功", result));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
@@ -506,6 +375,65 @@ public class PackageController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("取件失败：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 导出运维监控数据到根目录下的GPOT-DATA文件夹
+     * 将数据保存为.txt文件到项目根目录/GPOT-DATA文件夹
+     */
+    @PostMapping("/admin/export-data")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> exportAdminData(@RequestBody Map<String, Object> exportData) {
+        try {
+            // 获取项目根目录
+            File rootDir = new File(System.getProperty("user.dir"));
+            if (!rootDir.exists()) {
+                rootDir = new File(".");
+            }
+            
+            // 创建或获取GPOT-DATA文件夹
+            File dataDir = new File(rootDir, "GPOT-DATA");
+            if (!dataDir.exists()) {
+                if (!dataDir.mkdirs()) {
+                    return ResponseEntity.internalServerError()
+                        .body(ApiResponse.error("创建GPOT-DATA文件夹失败"));
+                }
+            }
+            
+            // 生成文件名
+            LocalDateTime now = LocalDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+            String fileName = "GPOT_运维监控数据_" + now.format(formatter) + ".txt";
+            File exportFile = new File(dataDir, fileName);
+            
+            // 获取导出内容
+            String content = (String) exportData.get("content");
+            if (content == null || content.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("导出内容不能为空"));
+            }
+            
+            // 写入文件
+            try (FileWriter writer = new FileWriter(exportFile, StandardCharsets.UTF_8)) {
+                writer.write(content);
+            }
+            
+            // 调用AI服务生成分析
+            String aiAnalysis = aiService.generateAnalysis(content);
+            
+            Map<String, Object> result = new java.util.HashMap<>();
+            result.put("fileName", fileName);
+            result.put("filePath", exportFile.getAbsolutePath());
+            result.put("message", "数据已成功保存到GPOT-DATA文件夹");
+            result.put("aiAnalysis", aiAnalysis);
+            
+            return ResponseEntity.ok(ApiResponse.success("导出成功", result));
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("保存文件失败：" + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("导出过程中发生错误：" + e.getMessage()));
         }
     }
 }

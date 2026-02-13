@@ -2,7 +2,7 @@
   <div class="user-packages-container">
     <div class="page-header">
       <h1>我的包裹</h1>
-      <button class="refresh-btn" @click="fetchPackages" :disabled="loading">
+      <button class="refresh-btn" @click="handleRefresh" :disabled="loading">
         {{ loading ? '刷新中...' : '刷新列表' }}
       </button>
     </div>
@@ -10,34 +10,54 @@
     <!-- 统计信息 -->
     <div class="stats-row">
       <div class="stat-card">
-        <span class="stat-number">{{ tempPackages.length }}</span>
-        <span class="stat-label">待审核</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-number">{{ formalPackages.length }}</span>
+        <span class="stat-number">{{ totalFormalCount }}</span>
         <span class="stat-label">已入库</span>
       </div>
       <div class="stat-card">
-        <span class="stat-number">{{ exceptionPackages.length }}</span>
+        <span class="stat-number">{{ totalExceptionCount }}</span>
         <span class="stat-label">异常包裹</span>
       </div>
       <div class="stat-card">
-        <span class="stat-number">{{ allPackages.length }}</span>
+        <span class="stat-number">{{ totalCount }}</span>
         <span class="stat-label">全部包裹</span>
       </div>
     </div>
 
-    <!-- 包裹列表 -->
-    <div class="packages-tabs">
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        :class="['tab-btn', { active: activeTab === tab.key }]"
-        @click="activeTab = tab.key"
-      >
-        {{ tab.label }}
-        <span class="tab-count">({{ getTabCount(tab.key) }})</span>
-      </button>
+    <!-- 查询和标签页 -->
+    <div class="search-tabs-container">
+      <!-- 查询框 -->
+      <div class="search-box">
+        <input
+          v-model="searchKeyword"
+          type="text"
+          placeholder="请输入快递单号、收件人姓名或电话进行查询"
+          class="search-input"
+          @keyup.enter="handleSearch"
+        />
+        <button class="search-btn" @click="handleSearch" :disabled="loading">
+          查询
+        </button>
+        <button 
+          v-if="searchKeyword" 
+          class="clear-btn" 
+          @click="handleClearSearch"
+        >
+          清除
+        </button>
+      </div>
+
+      <!-- 包裹列表标签页 -->
+      <div class="packages-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          :class="['tab-btn', { active: activeTab === tab.key }]"
+          @click="handleTabChange(tab.key)"
+        >
+          {{ tab.label }}
+          <span class="tab-count">({{ getTabCount(tab.key) }})</span>
+        </button>
+      </div>
     </div>
 
     <!-- 包裹表格 -->
@@ -56,7 +76,12 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="pkg in displayedPackages" :key="pkg.id">
+          <tr v-if="loading">
+            <td colspan="8" class="loading-message">
+              加载中...
+            </td>
+          </tr>
+          <tr v-for="pkg in displayedPackages" :key="`${pkg.source}-${pkg.id}`">
             <td class="tracking-number">{{ pkg.trackingNumber }}</td>
             <td>{{ pkg.receiverName }}</td>
             <td>{{ pkg.receiverPhone }}</td>
@@ -79,6 +104,50 @@
       </table>
     </div>
 
+    <!-- 分页组件 -->
+    <div v-if="totalPages > 1" class="pagination-container">
+      <div class="pagination-info">
+        共 {{ totalCount }} 条记录，第 {{ currentPage + 1 }} / {{ totalPages }} 页
+      </div>
+      <div class="pagination-controls">
+        <button
+          class="page-btn"
+          :disabled="currentPage === 0 || loading"
+          @click="handlePageChange(currentPage - 1)"
+        >
+          上一页
+        </button>
+        <span class="page-numbers">
+          <button
+            v-for="page in visiblePages"
+            :key="page"
+            :class="['page-number-btn', { active: page === currentPage + 1 }]"
+            :disabled="loading"
+            @click="handlePageChange(page - 1)"
+          >
+            {{ page }}
+          </button>
+        </span>
+        <button
+          class="page-btn"
+          :disabled="currentPage >= totalPages - 1 || loading"
+          @click="handlePageChange(currentPage + 1)"
+        >
+          下一页
+        </button>
+        <select
+          v-model.number="pageSize"
+          class="page-size-select"
+          :disabled="loading"
+          @change="handlePageSizeChange"
+        >
+          <option :value="10">10 条/页</option>
+          <option :value="20">20 条/页</option>
+          <option :value="50">50 条/页</option>
+        </select>
+      </div>
+    </div>
+
     <!-- 成功提示 -->
     <div v-if="successMessage" class="success-message">
       {{ successMessage }}
@@ -92,7 +161,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import api from '../services/api'
 
 export default {
@@ -102,14 +171,21 @@ export default {
     const successMessage = ref('')
     const errorMessage = ref('')
     const activeTab = ref('all')
+    const searchKeyword = ref('')
     
-    const tempPackages = ref([])
+    // 分页相关
+    const currentPage = ref(0)
+    const pageSize = ref(10)
+    const totalCount = ref(0)
+    const totalPages = ref(0)
+    const totalFormalCount = ref(0)
+    const totalExceptionCount = ref(0)
+    
     const formalPackages = ref([])
     const exceptionPackages = ref([])
 
     const tabs = [
       { key: 'all', label: '全部包裹' },
-      { key: 'temp', label: '待审核' },
       { key: 'formal', label: '已入库' },
       { key: 'exception', label: '异常包裹' }
     ]
@@ -118,15 +194,7 @@ export default {
     const allPackages = computed(() => {
       const all = []
       
-      // 临时包裹 - 直接使用数据库中的status字段
-      tempPackages.value.forEach(pkg => {
-        all.push({
-          ...pkg,
-          source: 'temp'
-        })
-      })
-      
-      // 正式包裹 - 直接使用数据库中的status字段
+      // 正式包裹
       formalPackages.value.forEach(pkg => {
         all.push({
           ...pkg,
@@ -134,7 +202,7 @@ export default {
         })
       })
       
-      // 异常包裹 - 直接使用数据库中的异常类型作为状态
+      // 异常包裹
       exceptionPackages.value.forEach(pkg => {
         all.push({
           id: pkg.id,
@@ -164,20 +232,12 @@ export default {
     const displayedPackages = computed(() => {
       if (activeTab.value === 'all') {
         return allPackages.value
-      } else if (activeTab.value === 'temp') {
-        // 临时包裹 - 直接使用数据库中的status字段
-        return tempPackages.value.map(pkg => ({
-          ...pkg,
-          source: 'temp'
-        }))
       } else if (activeTab.value === 'formal') {
-        // 正式包裹 - 直接使用数据库中的status字段
         return formalPackages.value.map(pkg => ({
           ...pkg,
           source: 'formal'
         }))
       } else if (activeTab.value === 'exception') {
-        // 异常包裹 - 直接使用数据库中的异常类型作为状态
         return exceptionPackages.value.map(pkg => ({
           id: pkg.id,
           trackingNumber: pkg.trackingNumber,
@@ -196,21 +256,37 @@ export default {
       return []
     })
 
+    // 计算可见的页码
+    const visiblePages = computed(() => {
+      const pages = []
+      const maxVisible = 5
+      let start = Math.max(0, currentPage.value - Math.floor(maxVisible / 2))
+      let end = Math.min(totalPages.value, start + maxVisible)
+      
+      if (end - start < maxVisible) {
+        start = Math.max(0, end - maxVisible)
+      }
+      
+      for (let i = start; i < end; i++) {
+        pages.push(i + 1)
+      }
+      return pages
+    })
+
     // 获取标签页数量
     const getTabCount = (key) => {
-      if (key === 'all') return allPackages.value.length
-      if (key === 'temp') return tempPackages.value.length
-      if (key === 'formal') return formalPackages.value.length
-      if (key === 'exception') return exceptionPackages.value.length
+      if (key === 'all') return totalCount.value
+      if (key === 'formal') return totalFormalCount.value
+      if (key === 'exception') return totalExceptionCount.value
       return 0
     }
 
-    // 获取状态文本 - 直接使用数据库中的status字段
+    // 获取状态文本
     const getStatusText = (pkg) => {
       return pkg.status || '未知'
     }
 
-    // 获取状态样式类 - 根据数据库中的status值判断
+    // 获取状态样式类
     const getStatusClass = (pkg) => {
       const status = pkg.status || ''
       if (status.includes('异常')) {
@@ -227,8 +303,10 @@ export default {
 
     // 获取空数据提示
     const getEmptyMessage = () => {
+      if (searchKeyword.value) {
+        return '未找到匹配的包裹记录'
+      }
       if (activeTab.value === 'all') return '暂无包裹记录'
-      if (activeTab.value === 'temp') return '暂无待审核的包裹'
       if (activeTab.value === 'formal') return '暂无已入库的包裹'
       if (activeTab.value === 'exception') return '暂无异常包裹'
       return '暂无数据'
@@ -241,7 +319,7 @@ export default {
       return date.toLocaleString('zh-CN')
     }
 
-    // 获取用户包裹
+    // 获取用户包裹（分页）
     const fetchPackages = async () => {
       loading.value = true
       errorMessage.value = ''
@@ -254,15 +332,24 @@ export default {
           return
         }
 
-        const response = await api.getUserAllPackages(user.id)
+        const response = await api.getUserAllPackagesWithPagination(
+          user.id,
+          searchKeyword.value,
+          currentPage.value,
+          pageSize.value,
+          activeTab.value
+        )
+        
         if (response.data.success) {
-          tempPackages.value = response.data.data.tempPackages || []
-          formalPackages.value = response.data.data.formalPackages || []
-          exceptionPackages.value = response.data.data.exceptionPackages || []
-          successMessage.value = '数据加载成功'
-          setTimeout(() => {
-            successMessage.value = ''
-          }, 2000)
+          const data = response.data.data
+          formalPackages.value = data.formalPackages || []
+          exceptionPackages.value = data.exceptionPackages || []
+          totalCount.value = data.totalElements || 0
+          totalPages.value = data.totalPages || 0
+          currentPage.value = data.currentPage || 0
+          
+          // 获取总数统计（需要单独查询）
+          await fetchTotalCounts(user.id)
         } else {
           errorMessage.value = response.data.message || '获取包裹列表失败'
         }
@@ -272,6 +359,63 @@ export default {
       } finally {
         loading.value = false
       }
+    }
+
+    // 获取总数统计
+    const fetchTotalCounts = async (userId) => {
+      try {
+        // 分别获取正式包裹和异常包裹的总数（不应用查询条件）
+        const formalResponse = await api.getUserAllPackagesWithPagination(userId, '', 0, 1, 'formal')
+        const exceptionResponse = await api.getUserAllPackagesWithPagination(userId, '', 0, 1, 'exception')
+        
+        if (formalResponse.data.success) {
+          totalFormalCount.value = formalResponse.data.data.totalElements || 0
+        }
+        if (exceptionResponse.data.success) {
+          totalExceptionCount.value = exceptionResponse.data.data.totalElements || 0
+        }
+      } catch (error) {
+        console.error('获取统计信息失败:', error)
+      }
+    }
+
+    // 处理标签页切换
+    const handleTabChange = (tabKey) => {
+      activeTab.value = tabKey
+      currentPage.value = 0
+      fetchPackages()
+    }
+
+    // 处理搜索
+    const handleSearch = () => {
+      currentPage.value = 0
+      fetchPackages()
+    }
+
+    // 清除搜索
+    const handleClearSearch = () => {
+      searchKeyword.value = ''
+      currentPage.value = 0
+      fetchPackages()
+    }
+
+    // 处理刷新
+    const handleRefresh = () => {
+      fetchPackages()
+    }
+
+    // 处理页码变化
+    const handlePageChange = (page) => {
+      currentPage.value = page
+      fetchPackages()
+      // 滚动到顶部
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    // 处理每页大小变化
+    const handlePageSizeChange = () => {
+      currentPage.value = 0
+      fetchPackages()
     }
 
     // 页面加载时获取数据
@@ -285,17 +429,29 @@ export default {
       errorMessage,
       activeTab,
       tabs,
-      tempPackages,
+      searchKeyword,
       formalPackages,
       exceptionPackages,
       allPackages,
       displayedPackages,
+      currentPage,
+      pageSize,
+      totalCount,
+      totalPages,
+      totalFormalCount,
+      totalExceptionCount,
+      visiblePages,
       getTabCount,
       getStatusText,
       getStatusClass,
       getEmptyMessage,
       formatDate,
-      fetchPackages
+      handleTabChange,
+      handleSearch,
+      handleClearSearch,
+      handleRefresh,
+      handlePageChange,
+      handlePageSizeChange
     }
   }
 }
@@ -373,11 +529,75 @@ export default {
   margin-top: 4px;
 }
 
+/* 查询和标签页容器 */
+.search-tabs-container {
+  margin-bottom: 24px;
+}
+
+/* 查询框 */
+.search-box {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.search-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid #ddd;
+  border-radius: 0;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: #DC143C;
+}
+
+.search-btn,
+.clear-btn {
+  padding: 12px 24px;
+  border: 2px solid #DC143C;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 0;
+}
+
+.search-btn {
+  background: #DC143C;
+  color: white;
+}
+
+.search-btn:hover:not(:disabled) {
+  background: #B22222;
+  border-color: #B22222;
+}
+
+.search-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.clear-btn {
+  background: white;
+  color: #DC143C;
+}
+
+.clear-btn:hover {
+  background: #fff5f5;
+}
+
 /* 标签页 */
 .packages-tabs {
   display: flex;
   gap: 12px;
-  margin-bottom: 24px;
   background: white;
   padding: 8px;
   border-radius: 8px;
@@ -490,11 +710,113 @@ export default {
   color: #721c24;
 }
 
+.loading-message,
 .empty-message {
   text-align: center;
   padding: 48px !important;
   color: #999;
   font-size: 16px;
+}
+
+/* 分页样式 */
+.pagination-container {
+  margin-top: 24px;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pagination-info {
+  color: #666;
+  font-size: 14px;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-btn {
+  padding: 8px 16px;
+  background: white;
+  color: #DC143C;
+  border: 2px solid #DC143C;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 0;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #DC143C;
+  color: white;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 4px;
+}
+
+.page-number-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  background: white;
+  color: #666;
+  border: 2px solid #ddd;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 0;
+}
+
+.page-number-btn:hover:not(:disabled) {
+  border-color: #DC143C;
+  color: #DC143C;
+}
+
+.page-number-btn.active {
+  background: #DC143C;
+  color: white;
+  border-color: #DC143C;
+}
+
+.page-number-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-size-select {
+  padding: 8px 12px;
+  border: 2px solid #ddd;
+  border-radius: 0;
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.page-size-select:focus {
+  border-color: #DC143C;
+}
+
+.page-size-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .success-message {
