@@ -76,6 +76,10 @@ public class Package {
     @Column
     private LocalDateTime pickupDeadline;
 
+    /**
+     * 派送员工ID
+     * 【字段已禁用】该字段功能已被禁用，但为保持数据库兼容性未被删除
+     */
     @Column
     private Long deliveryEmployeeId;
 

@@ -13,6 +13,19 @@
 
         <div class="outbound-form">
           <div class="form-group">
+            <label>取件码</label>
+            <input
+              v-model="pickupCode"
+              type="text"
+              placeholder="请输入取件码"
+              class="outbound-input"
+              @keyup.enter="handleOutbound"
+              :disabled="loading"
+              ref="pickupCodeInput"
+            />
+          </div>
+
+          <div class="form-group">
             <label>快递单号</label>
             <input
               v-model="trackingNumber"
@@ -21,13 +34,15 @@
               class="outbound-input"
               @keyup.enter="handleOutbound"
               :disabled="loading"
+              ref="trackingInput"
             />
           </div>
 
           <button
             class="outbound-btn"
-            :disabled="loading || !trackingNumber.trim()"
+            :disabled="loading || !trackingNumber.trim() || !pickupCode.trim()"
             @click="handleOutbound"
+            ref="outboundBtn"
           >
             {{ loading ? '处理中...' : '确认出库' }}
           </button>
@@ -78,6 +93,7 @@ export default {
     const router = useRouter()
 
     const trackingNumber = ref('')
+    const pickupCode = ref('')
     const loading = ref(false)
     const errorMessage = ref('')
     const successMessage = ref('')
@@ -93,18 +109,24 @@ export default {
         return
       }
 
+      if (!pickupCode.value.trim()) {
+        errorMessage.value = '请输入取件码'
+        return
+      }
+
       loading.value = true
       errorMessage.value = ''
       successMessage.value = ''
       outboundResult.value = null
 
       try {
-        const response = await api.userPickupPackage(trackingNumber.value.trim())
+        const response = await api.userPickupPackage(trackingNumber.value.trim(), pickupCode.value.trim())
         if (response.data && response.data.success) {
           outboundResult.value = response.data.data
           successMessage.value = '快递已成功出库'
           trackingNumber.value = ''
-          
+          pickupCode.value = ''
+
           setTimeout(() => {
             successMessage.value = ''
             outboundResult.value = null
@@ -126,6 +148,7 @@ export default {
 
     return {
       trackingNumber,
+      pickupCode,
       loading,
       errorMessage,
       successMessage,

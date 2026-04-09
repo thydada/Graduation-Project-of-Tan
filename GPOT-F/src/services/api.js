@@ -59,8 +59,8 @@ const apiService = {
   },
 
   // 用户取件操作（终端机出库使用）
-  async userPickupPackage(trackingNumber) {
-    return api.post(`/packages/pickup/${trackingNumber}`)
+  async userPickupPackage(trackingNumber, pickupCode) {
+    return api.post(`/packages/pickup/${trackingNumber}`, { pickupCode })
   },
 
 
@@ -110,11 +110,13 @@ const apiService = {
   },
 
   // 获取分配给指定员工的运输中包裹列表（员工A使用）
+  // 【功能已禁用】该API已被禁用，但为了保持系统完整性未被删除，请勿依赖此功能
   async getTransportingPackages(employeeId) {
     return api.get(`/packages/transporting/${employeeId}`)
   },
 
   // 送达操作（员工A）
+  // 【功能已禁用】该API已被禁用，但为了保持系统完整性未被删除，请勿依赖此功能
   async deliverPackage(packageId, employeeId) {
     return api.post(`/packages/${packageId}/deliver`, { employeeId })
   },
@@ -152,6 +154,11 @@ const apiService = {
   // 获取近几日入库统计
   async getDailyEntryStatistics(days = 7) {
     return api.get(`/admin/daily-entry-statistics?days=${days}`)
+  },
+
+  // 获取近几日出库统计
+  async getDailyOutboundStatistics(days = 3) {
+    return api.get(`/admin/daily-outbound-statistics?days=${days}`)
   },
 
   // 导出运维监控数据到根目录

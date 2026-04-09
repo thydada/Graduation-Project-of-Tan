@@ -16,6 +16,8 @@ public interface PackageOutboundRepository extends JpaRepository<PackageOutbound
 
     /**
      * 根据派送员工ID查询出库记录
+     * 
+     * 【功能已禁用】该功能已被禁用，但为了保持系统完整性未被删除，请勿依赖此功能
      */
     List<PackageOutbound> findByDeliveryEmployeeIdOrderByOutboundTimeDesc(Long deliveryEmployeeId);
 

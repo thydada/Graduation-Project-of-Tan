@@ -270,6 +270,8 @@ public class PackageController {
 
     /**
      * 获取分配给指定员工的运输中包裹列表（供员工A使用）
+     * 
+     * 【功能已禁用】该功能已被禁用，但为了保持系统完整性未被删除，请勿依赖此功能
      */
     @GetMapping("/packages/transporting/{employeeId}")
     public ResponseEntity<ApiResponse<List<Package>>> getTransportingPackages(@PathVariable Long employeeId) {
@@ -284,6 +286,8 @@ public class PackageController {
 
     /**
      * 送达操作（员工A）
+     * 
+     * 【功能已禁用】该功能已被禁用，但为了保持系统完整性未被删除，请勿依赖此功能
      */
     @PostMapping("/packages/{packageId}/deliver")
     public ResponseEntity<ApiResponse<Map<String, Object>>> deliverPackage(
@@ -333,6 +337,20 @@ public class PackageController {
     }
 
     /**
+     * 获取近几日出库统计（管理员监控大屏使用）
+     */
+    @GetMapping("/admin/daily-outbound-statistics")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getDailyOutboundStatistics(@RequestParam(defaultValue = "3") int days) {
+        try {
+            List<Map<String, Object>> statistics = packageService.getDailyOutboundStatistics(days);
+            return ResponseEntity.ok(ApiResponse.success("查询成功", statistics));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("获取每日出库统计失败：" + e.getMessage()));
+        }
+    }
+
+    /**
      * 报告正式包裹异常件
      * 将正式包裹标记为异常，并写入异常件表
      */
@@ -365,12 +383,15 @@ public class PackageController {
 
     /**
      * 用户取件操作（终端机出库使用）
-     * 根据快递单号将包裹状态改为已取件
+     * 根据快递单号和取件码将包裹状态改为已取件
      */
     @PostMapping("/packages/pickup/{trackingNumber}")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> userPickupPackage(@PathVariable String trackingNumber) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> userPickupPackage(
+            @PathVariable String trackingNumber,
+            @RequestBody Map<String, String> request) {
         try {
-            Map<String, Object> result = packageService.userPickupPackage(trackingNumber);
+            String pickupCode = request.get("pickupCode");
+            Map<String, Object> result = packageService.userPickupPackage(trackingNumber, pickupCode);
             return ResponseEntity.ok(ApiResponse.success("取件成功", result));
         } catch (Exception e) {
             return ResponseEntity.badRequest()

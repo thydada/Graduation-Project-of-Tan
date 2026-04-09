@@ -24,6 +24,10 @@ public class PackageOutbound {
     @Column(nullable = false, comment = "出库员工ID（员工B）")
     private Long outboundEmployeeId;
 
+    /**
+     * 派送员工ID（员工A）
+     * 【字段已禁用】该字段功能已被禁用，但为保持数据库兼容性未被删除
+     */
     @Column(nullable = false, comment = "派送员工ID（员工A）")
     private Long deliveryEmployeeId;
 

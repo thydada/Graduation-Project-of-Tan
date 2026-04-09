@@ -1,0 +1,84 @@
+@startuml GPOT快递管理系统-功能模块图
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 11
+skinparam RectangleBorderColor #333333
+
+' 顶层：系统名称
+rectangle "GPOT 快递管理系统" as ROOT #E8E8E8
+
+' 第一层：六个主模块横向排列
+rectangle "认证与登录模块" as M1
+rectangle "包裹入库模块" as M2
+rectangle "包裹在库与取件模块" as M3
+rectangle "异常件管理模块" as M4
+rectangle "消息通知模块" as M5
+rectangle "管理员统计模块" as M6
+
+' 顶层连到主模块
+ROOT -down-> M1
+ROOT -down-> M2
+ROOT -down-> M3
+ROOT -down-> M4
+ROOT -down-> M5
+ROOT -down-> M6
+
+' 认证与登录模块 - 子功能
+rectangle "管理员登录" as M1a
+rectangle "员工登录" as M1b
+rectangle "用户登录" as M1c
+rectangle "用户注册" as M1d
+M1 -down-> M1a
+M1 -down-> M1b
+M1 -down-> M1c
+M1 -down-> M1d
+
+' 包裹入库模块 - 子功能
+rectangle "扫码入库" as M2a
+rectangle "手动入库" as M2b
+rectangle "货架分配" as M2c
+rectangle "取件码生成" as M2d
+M2 -down-> M2a
+M2 -down-> M2b
+M2 -down-> M2c
+M2 -down-> M2d
+
+' 包裹在库与取件模块 - 子功能
+rectangle "出库(终端)" as M3a
+rectangle "派送(终端)" as M3b
+rectangle "用户取件" as M3c
+rectangle "终端查询" as M3d
+M3 -down-> M3a
+M3 -down-> M3b
+M3 -down-> M3c
+M3 -down-> M3d
+
+' 异常件管理模块 - 子功能
+rectangle "异常登记" as M4a
+rectangle "异常查询" as M4b
+rectangle "处理状态维护" as M4c
+M4 -down-> M4a
+M4 -down-> M4b
+M4 -down-> M4c
+
+' 消息通知模块 - 子功能
+rectangle "取件提醒" as M5a
+rectangle "群发消息" as M5b
+rectangle "消息列表" as M5c
+rectangle "已读管理" as M5d
+M5 -down-> M5a
+M5 -down-> M5b
+M5 -down-> M5c
+M5 -down-> M5d
+
+' 管理员统计模块 - 子功能
+rectangle "运营数据统计" as M6a
+rectangle "入库趋势图" as M6b
+rectangle "数据导出" as M6c
+rectangle "AI分析" as M6d
+M6 -down-> M6a
+M6 -down-> M6b
+M6 -down-> M6c
+M6 -down-> M6d
+
+@enduml

@@ -160,93 +160,219 @@
         </div>
       </div>
 
-      <!-- 操作统计标签页 -->
+      <!-- 操作统计标签页 - 运维数据大屏 -->
       <div v-show="activeTab === 'operations'" class="tab-content">
-        <div class="charts-section">
-          <div class="chart-row">
-            <div class="chart-card">
-              <div class="chart-header">
-                <h3>操作统计</h3>
-              </div>
-              <div class="chart-content">
-                <div class="operation-stats">
-                  <div class="operation-item">
-                    <div class="operation-value">{{ statistics.totalEntries || 0 }}</div>
-                    <div class="operation-label">入库记录</div>
-                  </div>
-                  <div class="operation-item">
-                    <div class="operation-value">{{ statistics.totalOutbounds || 0 }}</div>
-                    <div class="operation-label">出库记录</div>
-                  </div>
-                </div>
+        <div class="operation-dashboard">
+          <!-- 顶部统计数据 -->
+          <div class="top-stats-row">
+            <div class="mini-stat-card">
+              <div class="mini-stat-icon">A</div>
+              <div class="mini-stat-info">
+                <div class="mini-stat-value">{{ statistics.totalEntries || 0 }}</div>
+                <div class="mini-stat-label">总入库</div>
               </div>
             </div>
+            <div class="mini-stat-card">
+              <div class="mini-stat-icon">B</div>
+              <div class="mini-stat-info">
+                <div class="mini-stat-value">{{ statistics.totalOutbounds || 0 }}</div>
+                <div class="mini-stat-label">总出库</div>
+              </div>
+            </div>
+            <div class="mini-stat-card">
+              <div class="mini-stat-icon">C</div>
+              <div class="mini-stat-info">
+                <div class="mini-stat-value">{{ statistics.exception || 0 }}</div>
+                <div class="mini-stat-label">异常件</div>
+              </div>
+            </div>
+            <div class="mini-stat-card">
+              <div class="mini-stat-icon">D</div>
+              <div class="mini-stat-info">
+                <div class="mini-stat-value">{{ statistics.totalPackages || 0 }}</div>
+                <div class="mini-stat-label">包裹总量</div>
+              </div>
+            </div>
+          </div>
 
-            <div class="chart-card line-chart-card">
+          <!-- 四格图表区域 -->
+          <div class="charts-grid">
+            <!-- 图表1: 近7日入库趋势 -->
+            <div class="grid-chart-card">
               <div class="chart-header">
                 <h3>近7日入库趋势</h3>
+                <span class="chart-subtitle">每日入库包裹数量</span>
               </div>
-              <div class="chart-content">
-                <div class="line-chart-wrapper">
-                  <svg class="line-chart" :width="chartWidth" :height="chartHeight">
+              <div class="chart-body">
+                <div class="line-chart-mini-wrapper">
+                  <svg class="line-chart-mini" :width="miniChartWidth" :height="miniChartHeight">
                     <defs>
-                      <linearGradient id="lineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style="stop-color:#DC143C;stop-opacity:0.6" />
-                        <stop offset="100%" style="stop-color:#DC143C;stop-opacity:0.1" />
+                      <linearGradient id="lineGradientMini" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:#DC143C;stop-opacity:0.4" />
+                        <stop offset="100%" style="stop-color:#DC143C;stop-opacity:0.05" />
                       </linearGradient>
                     </defs>
-                    <g v-if="chartPoints.length > 0">
+                    <g v-if="dailyEntryData.length > 0">
                       <polyline
-                        :points="linePoints"
+                        :points="miniLinePoints"
                         fill="none"
                         stroke="#DC143C"
-                        stroke-width="3"
+                        stroke-width="2.5"
                         stroke-linecap="round"
                         stroke-linejoin="round"
                       />
                       <polygon
-                        :points="areaPoints"
-                        fill="url(#lineGradient)"
+                        :points="miniAreaPoints"
+                        fill="url(#lineGradientMini)"
                       />
-                      <g v-for="(point, index) in chartPoints" :key="index">
+                      <g v-for="(point, index) in miniChartPoints" :key="index">
                         <circle
                           :cx="point.x"
                           :cy="point.y"
-                          r="6"
+                          r="4"
                           fill="#DC143C"
                           stroke="#fff"
-                          stroke-width="2"
+                          stroke-width="1.5"
                         />
                         <text
                           :x="point.x"
-                          :y="point.y - 12"
+                          :y="point.y - 8"
                           text-anchor="middle"
                           fill="#DC143C"
-                          font-size="13"
-                          font-weight="700"
+                          font-size="10"
+                          font-weight="600"
                         >{{ point.value }}</text>
                       </g>
-                      <g v-for="(item, index) in dailyEntryData" :key="index">
+                      <g v-for="(item, index) in dailyEntryData" :key="'label-' + index">
                         <text
-                          :x="chartPoints[index]?.x || 0"
-                          :y="chartHeight - 10"
+                          :x="miniChartPoints[index]?.x || 0"
+                          :y="miniChartHeight - 5"
                           text-anchor="middle"
                           fill="#666"
-                          font-size="12"
-                          font-weight="500"
+                          font-size="9"
                         >{{ item.dateLabel }}</text>
                       </g>
                     </g>
                     <g v-else>
                       <text
-                        :x="chartWidth / 2"
-                        :y="chartHeight / 2"
+                        :x="miniChartWidth / 2"
+                        :y="miniChartHeight / 2"
                         text-anchor="middle"
                         fill="#999"
-                        font-size="14"
+                        font-size="12"
                       >暂无数据</text>
                     </g>
                   </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- 图表2: 包裹状态分布 -->
+            <div class="grid-chart-card">
+              <div class="chart-header">
+                <h3>包裹状态分布</h3>
+                <span class="chart-subtitle">各类状态包裹占比</span>
+              </div>
+              <div class="chart-body">
+                <div class="bar-chart-mini">
+                  <div class="bar-item" v-for="(item, index) in statusDistribution" :key="index">
+                    <div class="bar-label">{{ item.label }}</div>
+                    <div class="bar-track">
+                      <div
+                        class="bar-fill"
+                        :style="{ width: item.percentage + '%', backgroundColor: item.color }"
+                      ></div>
+                    </div>
+                    <div class="bar-value">{{ item.value }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 图表3: 近7日出库趋势 -->
+            <div class="grid-chart-card">
+              <div class="chart-header">
+                <h3>近7日出库趋势</h3>
+                <span class="chart-subtitle">每日出库包裹数量</span>
+              </div>
+              <div class="chart-body">
+                <div class="bar-chart-mini">
+                  <div class="vertical-bar-item" v-for="(item, index) in outboundTrendData" :key="index">
+                    <div class="v-bar-wrapper">
+                      <div
+                        class="v-bar-fill"
+                        :style="{ height: item.percentage + '%' }"
+                      ></div>
+                    </div>
+                    <div class="v-bar-value">{{ item.value }}</div>
+                    <div class="v-bar-label">{{ item.dateLabel }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 图表4: 异常件处理统计 -->
+            <div class="grid-chart-card">
+              <div class="chart-header">
+                <h3>异常件处理统计</h3>
+                <span class="chart-subtitle">处理进度分布</span>
+              </div>
+              <div class="chart-body">
+                <div class="exception-dashboard">
+                  <div class="exception-progress-ring">
+                    <svg :width="ringSize" :height="ringSize">
+                      <circle
+                        class="ring-bg"
+                        :cx="ringSize/2"
+                        :cy="ringSize/2"
+                        :r="ringRadius"
+                        fill="none"
+                        stroke="#eee"
+                        stroke-width="8"
+                      />
+                      <circle
+                        class="ring-progress"
+                        :cx="ringSize/2"
+                        :cy="ringSize/2"
+                        :r="ringRadius"
+                        fill="none"
+                        stroke="#DC143C"
+                        stroke-width="8"
+                        :stroke-dasharray="ringDashArray"
+                        stroke-linecap="round"
+                        :transform="`rotate(-90 ${ringSize/2} ${ringSize/2})`"
+                      />
+                      <text
+                        :x="ringSize/2"
+                        :y="ringSize/2 - 5"
+                        text-anchor="middle"
+                        fill="#DC143C"
+                        font-size="18"
+                        font-weight="700"
+                      >{{ exceptionCompleteRate }}%</text>
+                      <text
+                        :x="ringSize/2"
+                        :y="ringSize/2 + 12"
+                        text-anchor="middle"
+                        fill="#666"
+                        font-size="10"
+                      >完成率</text>
+                    </svg>
+                  </div>
+                  <div class="exception-legend">
+                    <div class="legend-item">
+                      <span class="legend-dot pending"></span>
+                      <span class="legend-text">待处理: {{ statistics.pendingException || 0 }}</span>
+                    </div>
+                    <div class="legend-item">
+                      <span class="legend-dot processing"></span>
+                      <span class="legend-text">处理中: {{ statistics.processingException || 0 }}</span>
+                    </div>
+                    <div class="legend-item">
+                      <span class="legend-dot completed"></span>
+                      <span class="legend-text">已完成: {{ statistics.completedException || 0 }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -292,6 +418,7 @@ export default {
     const exporting = ref(false)
     const statistics = ref({})
     const dailyEntryData = ref([])
+    const dailyOutboundData = ref([])
     const currentTime = ref('')
     const activeTab = ref('overview')
     const chartWidth = 800
@@ -307,8 +434,101 @@ export default {
       { id: 'overview', label: '总览' },
       { id: 'packages', label: '包裹统计' },
       { id: 'users', label: '用户统计' },
-      { id: 'operations', label: '操作统计' }
+      { id: 'operations', label: '运维数据大屏' }
     ]
+
+    // 小图表尺寸配置
+    const miniChartWidth = 260
+    const miniChartHeight = 160
+    const miniPadding = 30
+
+    // 环形图配置
+    const ringSize = 120
+    const ringRadius = 45
+
+    // 计算状态分布数据
+    const statusDistribution = computed(() => {
+      const total = statistics.value.totalPackages || 1
+      const items = [
+        { label: '待入库', value: statistics.value.pendingInbound || 0, color: '#ffc107' },
+        { label: '已入库', value: statistics.value.inStock || 0, color: '#28a745' },
+        { label: '已取件', value: statistics.value.delivered || 0, color: '#6f42c1' },
+        { label: '异常件', value: statistics.value.exception || 0, color: '#dc3545' }
+      ]
+      return items.map(item => ({
+        ...item,
+        percentage: Math.round((item.value / total) * 100)
+      }))
+    })
+
+    // 计算异常件完成率
+    const exceptionCompleteRate = computed(() => {
+      const total = (statistics.value.pendingException || 0) +
+                     (statistics.value.processingException || 0) +
+                     (statistics.value.completedException || 0)
+      if (total === 0) return 0
+      const completed = statistics.value.completedException || 0
+      return Math.round((completed / total) * 100)
+    })
+
+    // 环形图进度
+    const ringDashArray = computed(() => {
+      const circumference = 2 * Math.PI * ringRadius
+      const progress = (exceptionCompleteRate.value / 100) * circumference
+      return `${progress} ${circumference}`
+    })
+
+    // 近7日出库趋势（使用真实API数据）
+    const outboundTrendData = computed(() => {
+      // 使用真实API获取的出库数据
+      if (dailyOutboundData.value.length > 0) {
+        const maxOutbound = Math.max(...dailyOutboundData.value.map(item => item.count), 1)
+        return dailyOutboundData.value.map(item => ({
+          dateLabel: item.dateLabel,
+          value: item.count,
+          percentage: maxOutbound > 0 ? Math.round((item.count / maxOutbound) * 100) : 0
+        }))
+      }
+      // 如果没有数据，显示空状态
+      return Array(7).fill(0).map((_, i) => ({
+        dateLabel: '',
+        value: 0,
+        percentage: 0
+      }))
+    })
+
+    // 小图表计算
+    const miniMaxValue = computed(() => {
+      if (dailyEntryData.value.length === 0) return 10
+      const max = Math.max(...dailyEntryData.value.map(item => item.count))
+      return max > 0 ? Math.ceil(max * 1.2) : 10
+    })
+
+    const miniChartPoints = computed(() => {
+      if (dailyEntryData.value.length === 0) return []
+      const width = miniChartWidth - miniPadding * 2
+      const height = miniChartHeight - miniPadding * 2
+      const stepX = width / (dailyEntryData.value.length - 1 || 1)
+
+      return dailyEntryData.value.map((item, index) => {
+        const x = miniPadding + index * stepX
+        const y = miniPadding + height - (item.count / miniMaxValue.value) * height
+        return { x, y, value: item.count }
+      })
+    })
+
+    const miniLinePoints = computed(() => {
+      return miniChartPoints.value.map(p => `${p.x},${p.y}`).join(' ')
+    })
+
+    const miniAreaPoints = computed(() => {
+      if (miniChartPoints.value.length === 0) return ''
+      const bottomY = miniChartHeight - miniPadding
+      const firstX = miniChartPoints.value[0].x
+      const lastX = miniChartPoints.value[miniChartPoints.value.length - 1].x
+      const points = miniChartPoints.value.map(p => `${p.x},${p.y}`).join(' ')
+      return `${firstX},${bottomY} ${points} ${lastX},${bottomY}`
+    })
 
     const updateTime = () => {
       const now = new Date()
@@ -352,6 +572,19 @@ export default {
       }
     }
 
+    const fetchDailyOutboundStatistics = async () => {
+      try {
+        const response = await api.getDailyOutboundStatistics(3)
+        if (response.data && response.data.success) {
+          dailyOutboundData.value = response.data.data
+        } else {
+          console.error('获取每日出库统计失败:', response.data?.message)
+        }
+      } catch (error) {
+        console.error('获取每日出库统计失败:', error)
+      }
+    }
+
     const maxValue = computed(() => {
       if (dailyEntryData.value.length === 0) return 10
       const max = Math.max(...dailyEntryData.value.map(item => item.count))
@@ -390,6 +623,7 @@ export default {
         // 确保数据是最新的
         await fetchStatistics()
         await fetchDailyEntryStatistics()
+        await fetchDailyOutboundStatistics()
 
         // 生成文本内容
         const now = new Date()
@@ -507,10 +741,12 @@ export default {
       updateTime()
       fetchStatistics()
       fetchDailyEntryStatistics()
+      fetchDailyOutboundStatistics()
       timeInterval = setInterval(updateTime, 1000)
       dataInterval = setInterval(() => {
         fetchStatistics()
         fetchDailyEntryStatistics()
+        fetchDailyOutboundStatistics()
       }, 30000)
     })
 
@@ -524,6 +760,7 @@ export default {
       exporting,
       statistics,
       dailyEntryData,
+      dailyOutboundData,
       currentTime,
       activeTab,
       tabs,
@@ -538,7 +775,19 @@ export default {
       fetchStatistics,
       exportData,
       closeAiDialog,
-      handleLogout
+      handleLogout,
+      // 运维数据大屏新增数据
+      miniChartWidth,
+      miniChartHeight,
+      miniChartPoints,
+      miniLinePoints,
+      miniAreaPoints,
+      statusDistribution,
+      ringSize,
+      ringRadius,
+      ringDashArray,
+      exceptionCompleteRate,
+      outboundTrendData
     }
   }
 }
@@ -910,42 +1159,252 @@ export default {
   font-weight: 500;
 }
 
-.operation-stats {
+/* 运维数据大屏样式 */
+.operation-dashboard {
+  background: #0a1628;
+  border: 2px solid #DC143C;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.top-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.mini-stat-card {
+  background: linear-gradient(135deg, #1a2942 0%, #0d1929 100%);
+  border: 1px solid #2a4a6a;
+  border-radius: 6px;
+  padding: 16px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.mini-stat-icon {
+  font-size: 24px;
+  font-weight: 700;
+  color: #DC143C;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(220, 20, 60, 0.2);
+  border-radius: 8px;
+}
+
+.mini-stat-info {
+  flex: 1;
+}
+
+.mini-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #DC143C;
+  line-height: 1.2;
+}
+
+.mini-stat-label {
+  font-size: 12px;
+  color: #8a9ab0;
+  margin-top: 4px;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
 }
 
-.operation-item {
-  padding: 16px;
-  background: #f8f8f8;
-  border-left: 4px solid #DC143C;
+.grid-chart-card {
+  background: linear-gradient(135deg, #1a2942 0%, #0d1929 100%);
+  border: 1px solid #2a4a6a;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-.operation-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #DC143C;
-  margin-bottom: 6px;
+.grid-chart-card .chart-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #2a4a6a;
+  background: rgba(220, 20, 60, 0.1);
 }
 
-.operation-label {
+.grid-chart-card .chart-header h3 {
+  margin: 0;
   font-size: 14px;
-  color: #666;
-  font-weight: 500;
+  font-weight: 600;
+  color: #fff;
 }
 
-.line-chart-wrapper {
+.chart-subtitle {
+  font-size: 11px;
+  color: #6a7a8a;
+}
+
+.grid-chart-card .chart-body {
+  padding: 12px;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 小型折线图 */
+.line-chart-mini-wrapper {
+  width: 100%;
   display: flex;
   justify-content: center;
-  align-items: center;
-  padding: 20px 0;
-  background: #fafafa;
-  border: 1px solid #e0e0e0;
 }
 
-.line-chart {
+.line-chart-mini {
   display: block;
+}
+
+/* 横向条形图 */
+.bar-chart-mini {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bar-label {
+  width: 50px;
+  font-size: 11px;
+  color: #8a9ab0;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.bar-track {
+  flex: 1;
+  height: 16px;
+  background: #1a2942;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.bar-value {
+  width: 40px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* 垂直柱状图 */
+.vertical-bar-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.v-bar-wrapper {
+  width: 100%;
+  height: 100px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.v-bar-fill {
+  width: 24px;
+  background: linear-gradient(to top, #DC143C, #ff4d6d);
+  border-radius: 3px 3px 0 0;
+  transition: height 0.5s ease;
+  min-height: 4px;
+}
+
+.v-bar-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #DC143C;
+}
+
+.v-bar-label {
+  font-size: 9px;
+  color: #6a7a8a;
+}
+
+/* 环形进度图 */
+.exception-dashboard {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.exception-progress-ring {
+  flex-shrink: 0;
+}
+
+.ring-bg,
+.ring-progress {
+  transition: stroke-dasharray 0.5s ease;
+}
+
+.exception-legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-dot.pending {
+  background: #ffc107;
+}
+
+.legend-dot.processing {
+  background: #17a2b8;
+}
+
+.legend-dot.completed {
+  background: #28a745;
+}
+
+.legend-text {
+  font-size: 12px;
+  color: #8a9ab0;
+}
+
+@media (max-width: 768px) {
+  .top-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {

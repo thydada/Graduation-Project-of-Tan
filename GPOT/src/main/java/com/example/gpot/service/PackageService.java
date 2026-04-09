@@ -14,9 +14,11 @@ import com.example.gpot.repository.PackageOutboundRepository;
 import com.example.gpot.repository.PackageRepository;
 import com.example.gpot.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +61,13 @@ public class PackageService {
     @Autowired
     private MessageService messageService;
 
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Value("${package.pickup.timeout-hours:24}")
+    private int pickupTimeoutHours;
+
+    private static final String REDIS_PACKAGE_KEY_PREFIX = "gpot:package:timeout:";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final char[] PICKUP_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
 
@@ -390,7 +399,10 @@ public class PackageService {
     }
 
     /**
-     * 出库操作：将包裹状态改为运输中，创建出库记录，随机分配派送员工
+     * 出库操作：将包裹状态改为运输中，创建出库记录
+     * 
+     * 【部分功能已禁用】派送员工分配功能已被禁用（随机分配员工作为派送员工不再使用）
+     * 但出库操作本身仍然正常，用于将包裹状态从"已入库"变为"运输中"
      */
     @Transactional
     public Map<String, Object> outboundPackage(Long packageId, Long outboundEmployeeId) {
@@ -407,7 +419,8 @@ public class PackageService {
             throw new RuntimeException("只有已入库的包裹才能出库");
         }
 
-        // 3. 员工不再区分部门A/B：随机选择任意员工作为派送员工
+        // 3. 【功能已禁用】员工分配功能已禁用：之前会随机分配派送员工，现在不再使用此功能
+        //    保留此代码以防后续恢复需要
         List<Employee> allEmployees = employeeRepository.findAll();
         if (allEmployees.isEmpty()) {
             throw new RuntimeException("没有可用的派送员工");
@@ -443,6 +456,8 @@ public class PackageService {
 
     /**
      * 获取分配给指定员工的运输中包裹列表
+     * 
+     * 【功能已禁用】该功能已被禁用，但为了保持系统完整性未被删除，请勿依赖此功能
      */
     public List<Package> getTransportingPackagesByEmployee(Long employeeId) {
         return packageRepository.findByDeliveryEmployeeIdAndStatusOrderByCreateTimeDesc(employeeId, "运输中");
@@ -450,6 +465,8 @@ public class PackageService {
 
     /**
      * 送达操作：将包裹状态改为待取件
+     * 
+     * 【功能已禁用】该功能已被禁用，但为了保持系统完整性未被删除，请勿依赖此功能
      */
     @Transactional
     public Map<String, Object> deliverPackage(Long packageId, Long deliveryEmployeeId) {
@@ -488,7 +505,7 @@ public class PackageService {
      * 用户取件操作：根据快递单号将包裹状态改为已取件（终端机出库使用）
      */
     @Transactional
-    public Map<String, Object> userPickupPackage(String trackingNumber) {
+    public Map<String, Object> userPickupPackage(String trackingNumber, String pickupCode) {
         // 1. 根据快递单号查询包裹
         Optional<Package> packageOpt = packageRepository.findByTrackingNumber(trackingNumber);
         if (!packageOpt.isPresent()) {
@@ -502,12 +519,31 @@ public class PackageService {
             throw new RuntimeException("只有已入库或待取件的包裹才能取件");
         }
 
-        // 3. 更新包裹状态
+        // 3. 验证取件码
+        if (pkg.getPickupCode() == null || pkg.getPickupCode().trim().isEmpty()) {
+            // 如果包裹没有取件码，则跳过验证
+        } else {
+            // 比较取件码（忽略前后空格）
+            if (!pkg.getPickupCode().trim().equals(pickupCode == null ? "" : pickupCode.trim())) {
+                throw new RuntimeException("取件码错误，请核对后重新输入");
+            }
+        }
+
+        // 4. 更新包裹状态
         pkg.setStatus("已取件");
         pkg.setUpdateTime(java.time.LocalDateTime.now());
         packageRepository.save(pkg);
 
-        // 4. 返回结果
+        // 移除Redis中的超时记录
+        try {
+            String redisKey = REDIS_PACKAGE_KEY_PREFIX + pkg.getId();
+            redisTemplate.delete(redisKey);
+        } catch (Exception e) {
+            // Redis删除失败不影响取件流程
+            System.err.println("删除Redis超时记录失败: " + e.getMessage());
+        }
+
+        // 5. 返回结果
         Map<String, Object> result = new java.util.HashMap<>();
         result.put("packageId", pkg.getId());
         result.put("trackingNumber", pkg.getTrackingNumber());
@@ -583,6 +619,16 @@ public class PackageService {
                 "正式包裹入库（待入库 -> 已入库）"
         );
         packageEntryRepository.save(entryRecord);
+
+        // 写入Redis，设置取件超时过期时间
+        try {
+            String redisKey = REDIS_PACKAGE_KEY_PREFIX + savedPackage.getId();
+            redisTemplate.opsForValue().set(redisKey, savedPackage.getId().toString(),
+                    pickupTimeoutHours, java.util.concurrent.TimeUnit.HOURS);
+        } catch (Exception e) {
+            // Redis写入失败不影响入库流程，记录日志
+            System.err.println("写入Redis超时记录失败: " + e.getMessage());
+        }
 
         // 发送取件提醒消息（如果用户ID存在）
         if (savedPackage.getUserId() != null) {
@@ -701,6 +747,42 @@ public class PackageService {
     }
 
     /**
+     * 处理取件超时的包裹（被Redis过期事件调用）
+     * 将超时未取件的包裹标记为异常
+     */
+    @Transactional
+    public Map<String, Object> handlePickupTimeout(Long packageId) {
+        Optional<Package> packageOpt = packageRepository.findById(packageId);
+        if (!packageOpt.isPresent()) {
+            return null;
+        }
+
+        Package pkg = packageOpt.get();
+
+        // 只有已入库或待取件状态的包裹才需要处理
+        if (!"已入库".equals(pkg.getStatus()) && !"待取件".equals(pkg.getStatus())) {
+            return null;
+        }
+
+        // 检查是否已经存在取件超时的异常记录
+        List<ExceptionPackage> existingExceptions = exceptionPackageRepository.findByPackageId(packageId);
+        boolean hasTimeoutException = existingExceptions.stream()
+                .anyMatch(e -> "取件超时".equals(e.getExceptionType()));
+        if (hasTimeoutException) {
+            return null;
+        }
+
+        // 创建异常记录，employeeId使用系统默认值1
+        return reportFormalPackageException(
+                packageId,
+                "取件超时",
+                "包裹入库后超过" + pickupTimeoutHours + "小时未取件",
+                1L,
+                "timeout"
+        );
+    }
+
+    /**
      * 获取管理员统计数据
      */
     public Map<String, Object> getAdminStatistics() {
@@ -778,6 +860,43 @@ public class PackageService {
             result.add(dayData);
         }
         
+        return result;
+    }
+
+    /**
+     * 获取近几日出库统计
+     */
+    public List<Map<String, Object>> getDailyOutboundStatistics(int days) {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(days - 1);
+
+        List<PackageOutbound> outbounds = packageOutboundRepository.findAll();
+
+        Map<String, Long> dailyCounts = outbounds.stream()
+            .filter(outbound -> {
+                LocalDateTime outboundTime = outbound.getOutboundTime();
+                if (outboundTime == null) return false;
+                LocalDate outboundDate = outboundTime.toLocalDate();
+                return !outboundDate.isBefore(startDate) && !outboundDate.isAfter(endDate);
+            })
+            .collect(Collectors.groupingBy(
+                outbound -> outbound.getOutboundTime().toLocalDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+                Collectors.counting()
+            ));
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (int i = 0; i < days; i++) {
+            LocalDate date = startDate.plusDays(i);
+            String dateStr = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String dateLabel = date.format(DateTimeFormatter.ofPattern("MM/dd"));
+
+            Map<String, Object> dayData = new HashMap<>();
+            dayData.put("date", dateStr);
+            dayData.put("dateLabel", dateLabel);
+            dayData.put("count", dailyCounts.getOrDefault(dateStr, 0L));
+            result.add(dayData);
+        }
+
         return result;
     }
 }

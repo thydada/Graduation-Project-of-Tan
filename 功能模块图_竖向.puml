@@ -1,0 +1,79 @@
+@startuml GPOT功能模块图_竖向
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam ArrowColor #333333
+
+title GPOT 快递管理系统 - 功能模块图（竖向）
+
+rectangle "**认证与登录模块**" as M1 {
+  card "多角色登录\n(管理员/员工/普通用户)" as M1a
+  card "登录验证与授权" as M1b
+  card "登录日志记录" as M1c
+}
+
+rectangle "**用户与角色管理模块**" as M2 {
+  rectangle "管理员管理" as M2a {
+    card "管理员账号维护" as M2a1
+    card "管理员权限配置" as M2a2
+  }
+  rectangle "员工管理" as M2b {
+    card "员工基本信息维护" as M2b1
+    card "员工部门与职位维护" as M2b2
+  }
+  rectangle "普通用户管理" as M2c {
+    card "用户注册信息维护" as M2c1
+    card "身份证信息管理" as M2c2
+  }
+  rectangle "角色与权限" as M2d {
+    card "角色定义" as M2d1
+    card "权限分配" as M2d2
+  }
+}
+
+rectangle "**仓库管理模块**" as M3 {
+  rectangle "仓库信息管理" as M3a {
+    card "仓库基础信息" as M3a1
+    card "仓库启停状态" as M3a2
+  }
+  rectangle "货架与库位管理" as M3b {
+    card "货架信息" as M3b1
+    card "库位配置" as M3b2
+    card "货架与仓库关联" as M3b3
+  }
+}
+
+rectangle "**包裹管理与追踪模块**" as M4 {
+  rectangle "包裹基础信息" as M4a {
+    card "包裹登记" as M4a1
+    card "包裹与寄件人/收件人关联" as M4a2
+  }
+  rectangle "包裹在库管理" as M4b {
+    card "入库登记" as M4b1
+    card "出库登记" as M4b2
+    card "库存状态维护" as M4b3
+  }
+}
+
+rectangle "**前端界面模块**" as M5 {
+  card "登录界面 (Vue 3)" as M5a
+  card "管理后台界面\n(用户/仓库/包裹)" as M5b
+  card "响应式布局与交互" as M5c
+}
+
+rectangle "**统计分析与报表模块**" as M6 {
+  rectangle "业务数据统计" as M6a {
+    card "包裹数量统计" as M6a1
+    card "仓库吞吐量统计" as M6a2
+    card "用户规模统计" as M6a3
+  }
+}
+
+M1 -[hidden]down- M2
+M2 -[hidden]down- M3
+M3 -[hidden]down- M4
+M4 -[hidden]down- M5
+M5 -[hidden]down- M6
+
+@enduml

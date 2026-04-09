@@ -1,3 +1,9 @@
+<!--
+  快递运送页面
+
+  【功能已禁用】该功能已被禁用，但为了保持系统完整性未被删除
+  请勿依赖此功能的数据或业务逻辑
+-->
 <template>
   <div class="delivery-container">
     <div class="page-header">
@@ -109,6 +115,7 @@ export default {
     }
 
     // 送达操作
+    // 【功能已禁用】送达功能已被禁用，该方法不再被调用，仅保留以防后续需要恢复
     const handleDeliver = async (packageId) => {
       processingId.value = packageId
       errorMessage.value = ''

@@ -31,6 +31,8 @@
               type="text"
               class="form-input"
               placeholder="请输入/粘贴快递单号（模拟扫描条形码）"
+              @keyup.enter="handleScanEnter"
+              ref="scanTrackingInput"
             />
           </div>
 
@@ -221,6 +223,51 @@
     <div v-if="errorMessage" class="error-message" v-show="activeTab === 'manual'">
       {{ errorMessage }}
     </div>
+
+    <!-- 货架匹配提醒弹窗 -->
+    <div v-if="showShelfWarningModal" class="modal-overlay" @click.self="cancelShelfWarning">
+      <div class="modal-content shelf-warning-modal">
+        <div class="modal-header">
+          <h3>
+            <span class="warning-icon">⚠️</span>
+            货架位置提醒
+          </h3>
+          <button class="close-btn" @click="cancelShelfWarning">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="warning-message">{{ shelfWarningMessage }}</p>
+          <div v-if="shelfWarningData && shelfWarningData.pkg" class="package-info">
+            <div class="info-row">
+              <span class="info-label">快递单号：</span>
+              <span class="info-value tracking-number">{{ shelfWarningData.pkg.trackingNumber }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">包裹类型：</span>
+              <span class="info-value">{{ shelfWarningData.pkg.packageType }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">重量：</span>
+              <span class="info-value">{{ shelfWarningData.pkg.weight }} kg</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">尺寸：</span>
+              <span class="info-value">{{ shelfWarningData.pkg.size || '-' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">当前货架：</span>
+              <span class="info-value">{{ activeTab === 'scan' ? (scanShelfId === 4 ? '货架4（大货架）' : `货架${scanShelfId}（普通）`) : (selectedShelfId === 4 ? '货架4（大货架）' : `货架${selectedShelfId}（普通）`) }}</span>
+            </div>
+          </div>
+          <p class="confirm-text">是否使用推荐货架位置继续入库？</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="cancelShelfWarning">取消</button>
+          <button class="btn-submit" @click="confirmRecommendedShelf">
+            确认使用推荐货架
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 </template>
@@ -242,6 +289,11 @@ export default {
     // 货架和层数选择
     const selectedShelfId = ref(null)
     const selectedShelfLayer = ref(null)
+
+    // 货架匹配提醒弹窗相关
+    const showShelfWarningModal = ref(false)
+    const shelfWarningMessage = ref('')
+    const shelfWarningData = ref(null) // 待入库的包裹信息
 
     // 当前入库模式：scan 扫码入库，manual 手动入库，exception 异常件登记（由路由决定）
     const route = useRoute()
@@ -268,6 +320,7 @@ export default {
     const scanLoading = ref(false)
     const scanSuccessMessage = ref('')
     const scanErrorMessage = ref('')
+    const scanTrackingInput = ref(null)
 
     // 异常件登记相关
     const exceptionTrackingNumber = ref('')
@@ -281,6 +334,163 @@ export default {
     const getCurrentEmployeeId = () => {
       const userInfo = JSON.parse(localStorage.getItem('user') || '{}')
       return userInfo.id || 1
+    }
+
+    /**
+     * 判断包裹是否为大件货
+     * @param pkg 包裹对象，包含size和weight属性
+     * @returns true-大件货，false-小件货
+     */
+    const isLargePackage = (pkg) => {
+      // 解析尺寸
+      if (pkg.size && pkg.size.trim()) {
+        try {
+          const dimensions = pkg.size.split('x')
+          if (dimensions.length === 3) {
+            const length = parseFloat(dimensions[0].trim())
+            const width = parseFloat(dimensions[1].trim())
+            const height = parseFloat(dimensions[2].trim())
+            const volume = length * width * height // 体积（cm³）
+
+            // 如果体积大于50000 cm³（约0.05立方米）或重量大于5kg，使用大货架
+            if (volume > 50000) {
+              return true
+            }
+          }
+        } catch (e) {
+          // 解析失败，继续用重量判断
+        }
+      }
+
+      // 根据重量判断（如果重量大于5kg）
+      if (pkg.weight) {
+        const weight = parseFloat(pkg.weight)
+        if (!isNaN(weight) && weight > 5) {
+          return true
+        }
+      }
+
+      return false
+    }
+
+    /**
+     * 检查包裹与货架是否匹配
+     * @param pkg 包裹对象
+     * @param shelfId 货架ID
+     * @returns { matched: boolean, suggestion: string, recommendedShelfId: number }
+     */
+    const checkShelfMatch = (pkg, shelfId) => {
+      const isLarge = isLargePackage(pkg)
+      const isLargeShelf = shelfId === 4
+
+      // 小件货放入大货架 - 提示放在小货架
+      if (!isLarge && isLargeShelf) {
+        return {
+          matched: false,
+          suggestion: '该快递体积较小，建议放入普通货架',
+          recommendedShelfId: null, // 让用户重新选择
+          recommendedShelfType: 'normal'
+        }
+      }
+
+      // 大件货放入小货架 - 提示放在大货架
+      if (isLarge && !isLargeShelf) {
+        return {
+          matched: false,
+          suggestion: '该快递体积较大，建议放入大货架（货架4）',
+          recommendedShelfId: 4,
+          recommendedShelfType: 'large'
+        }
+      }
+
+      return {
+        matched: true,
+        suggestion: '',
+        recommendedShelfId: null,
+        recommendedShelfType: null
+      }
+    }
+
+    /**
+     * 打开货架不匹配提醒弹窗
+     */
+    const openShelfWarningModal = (message, pkg, recommendedShelfId, recommendedShelfType) => {
+      shelfWarningMessage.value = message
+      shelfWarningData.value = {
+        pkg: pkg,
+        recommendedShelfId: recommendedShelfId,
+        recommendedShelfType: recommendedShelfType
+      }
+      showShelfWarningModal.value = true
+    }
+
+    /**
+     * 确认使用推荐货架
+     */
+    const confirmRecommendedShelf = () => {
+      if (shelfWarningData.value) {
+        const { pkg, recommendedShelfId, recommendedShelfType } = shelfWarningData.value
+
+        // 自动设置货架
+        if (recommendedShelfId) {
+          selectedShelfId.value = recommendedShelfId
+        }
+
+        // 重新触发入库操作
+        executeInbound(pkg.id)
+      }
+      showShelfWarningModal.value = false
+    }
+
+    /**
+     * 取消提醒，继续使用当前选择
+     */
+    const cancelShelfWarning = () => {
+      if (shelfWarningData.value) {
+        const { pkg } = shelfWarningData.value
+        // 继续执行入库，不改变货架
+        executeInbound(pkg.id)
+      }
+      showShelfWarningModal.value = false
+    }
+
+    /**
+     * 执行入库操作（内部方法）
+     */
+    const executeInbound = async (pkgId) => {
+      processingId.value = pkgId
+      errorMessage.value = ''
+      successMessage.value = ''
+
+      try {
+        const employeeId = getCurrentEmployeeId()
+
+        if (!selectedShelfId.value || !selectedShelfLayer.value) {
+          errorMessage.value = '请先选择货架和层数'
+          processingId.value = null
+          return
+        }
+
+        const response = await api.inboundFormalPackage(
+          pkgId,
+          employeeId,
+          1, // warehouseId 默认1
+          selectedShelfId.value,
+          selectedShelfLayer.value
+        )
+
+        if (response.data.success) {
+          packages.value = packages.value.filter(p => p.id !== pkgId)
+          successMessage.value = response.data.message || '入库成功'
+        } else {
+          errorMessage.value = response.data.message || '操作失败'
+        }
+      } catch (error) {
+        console.error('操作失败:', error)
+        errorMessage.value = error.response?.data?.message || '操作失败，请稍后重试'
+      } finally {
+        processingId.value = null
+      }
     }
 
     // 表格表头
@@ -320,6 +530,16 @@ export default {
       }
     }
 
+    // 扫码入库逻辑：回车快捷入库
+    const handleScanEnter = async () => {
+      if (scanLoading.value) return
+      await handleScanInbound()
+      // 入库成功后，自动聚焦回输入框，方便连续扫描
+      if (scanSuccessMessage.value && scanTrackingInput.value) {
+        scanTrackingInput.value.focus()
+      }
+    }
+
     // 扫码入库逻辑：根据快递单号查询 package，再调用正式入库接口
     const handleScanInbound = async () => {
       scanLoading.value = true
@@ -353,6 +573,15 @@ export default {
           return
         }
 
+        // 检查包裹与货架是否匹配
+        const matchResult = checkShelfMatch(pkg, scanShelfId.value)
+        if (!matchResult.matched) {
+          // 显示提醒弹窗
+          openShelfWarningModal(matchResult.suggestion, pkg, matchResult.recommendedShelfId, matchResult.recommendedShelfType)
+          scanLoading.value = false
+          return
+        }
+
         const employeeId = getCurrentEmployeeId()
 
         // 2. 调用正式入库接口
@@ -366,6 +595,8 @@ export default {
 
         if (inboundResp.data && inboundResp.data.success) {
           scanSuccessMessage.value = inboundResp.data.message || '扫码入库成功'
+          // 清空表单
+          scanTrackingNumber.value = ''
           // 如果手动列表中也有这条包裹，则同步移除
           packages.value = packages.value.filter(p => p.id !== pkg.id)
         } else {
@@ -400,22 +631,40 @@ export default {
     }
 
     // 处理成功操作
-    const handleSuccess = async (id) => {
-      processingId.value = id
+    const handleSuccess = async (pkgId) => {
+      processingId.value = pkgId
       errorMessage.value = ''
       successMessage.value = ''
 
       try {
         const employeeId = getCurrentEmployeeId()
 
-        // 入库快递（操作正式包裹：待入库 -> 已入库）
         if (!selectedShelfId.value || !selectedShelfLayer.value) {
           errorMessage.value = '请先选择货架和层数'
           processingId.value = null
           return
         }
+
+        // 查找待入库的包裹信息
+        const pkg = packages.value.find(p => p.id === pkgId)
+        if (!pkg) {
+          errorMessage.value = '未找到该包裹信息'
+          processingId.value = null
+          return
+        }
+
+        // 检查包裹与货架是否匹配
+        const matchResult = checkShelfMatch(pkg, selectedShelfId.value)
+        if (!matchResult.matched) {
+          // 打开提醒弹窗
+          openShelfWarningModal(matchResult.suggestion, pkg, matchResult.recommendedShelfId, matchResult.recommendedShelfType)
+          processingId.value = null
+          return
+        }
+
+        // 匹配，执行入库
         const response = await api.inboundFormalPackage(
-          id,
+          pkgId,
           employeeId,
           1, // warehouseId 默认1
           selectedShelfId.value,
@@ -423,8 +672,7 @@ export default {
         )
 
         if (response.data.success) {
-          // 成功后移除该快递
-          packages.value = packages.value.filter(p => p.id !== id)
+          packages.value = packages.value.filter(p => p.id !== pkgId)
           successMessage.value = response.data.message || '入库成功'
         } else {
           errorMessage.value = response.data.message || '操作失败'
@@ -549,6 +797,8 @@ export default {
       scanSuccessMessage,
       scanErrorMessage,
       handleScanInbound,
+      handleScanEnter,
+      scanTrackingInput,
       // 货架选择相关
       selectedShelfId,
       selectedShelfLayer,
@@ -560,7 +810,13 @@ export default {
       exceptionLoading,
       exceptionSuccessMessage,
       exceptionErrorMessage,
-      handleExceptionReport
+      handleExceptionReport,
+      // 货架匹配提醒弹窗相关
+      showShelfWarningModal,
+      shelfWarningMessage,
+      shelfWarningData,
+      confirmRecommendedShelf,
+      cancelShelfWarning
     }
   }
 }
@@ -1139,5 +1395,92 @@ textarea.form-control {
 .btn-submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* 货架不匹配提醒弹窗样式 */
+.shelf-warning-modal {
+  border: 3px solid #ff9800;
+}
+
+.shelf-warning-modal .modal-header {
+  background: #fff3e0;
+  border-bottom: 2px solid #ff9800;
+}
+
+.shelf-warning-modal .modal-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #e65100;
+}
+
+.warning-icon {
+  font-size: 24px;
+}
+
+.warning-message {
+  font-size: 16px;
+  color: #333;
+  line-height: 1.6;
+  padding: 12px 16px;
+  background: #fff8e1;
+  border-left: 4px solid #ff9800;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.package-info {
+  background: #f8f8f8;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.info-row:last-child {
+  margin-bottom: 0;
+}
+
+.info-label {
+  color: #666;
+  min-width: 80px;
+}
+
+.info-value {
+  color: #333;
+  font-weight: 500;
+}
+
+.info-value.tracking-number {
+  color: #DC143C;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.confirm-text {
+  color: #666;
+  font-size: 14px;
+  text-align: center;
+  margin: 0;
+}
+
+.shelf-warning-modal .modal-footer {
+  justify-content: center;
+}
+
+.shelf-warning-modal .btn-submit {
+  background: #ff9800;
+  border-color: #ff9800;
+}
+
+.shelf-warning-modal .btn-submit:hover:not(:disabled) {
+  background: #f57c00;
+  border-color: #f57c00;
 }
 </style>

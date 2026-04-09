@@ -56,4 +56,9 @@ public interface ExceptionPackageRepository extends JpaRepository<ExceptionPacka
            "AND (:keyword IS NULL OR :keyword = '' OR " +
            "e.trackingNumber LIKE %:keyword%)")
     long countByUserIdWithKeyword(@Param("userId") Long userId, @Param("keyword") String keyword);
+
+    /**
+     * 根据包裹ID查询异常记录
+     */
+    List<ExceptionPackage> findByPackageId(Long packageId);
 }
